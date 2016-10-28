@@ -5,7 +5,7 @@ sudo apt-get update
 sudo apt-get -y install realpath sendxmpp youtube-dl fbi transmission-daemon omxplayer lynx wput fail2ban nginx telnet oracle-java8-jdk groff sqlite3
 
 # librerias
-sudo apt-get -y install libxml-simple-perl libwww-perl python-requests python-bs4 python-yaml libmail-pop3client-perl libmail-imapclient-perl libdigest-hmac-perl libemail-simple-perl libdate-manip-perl libjson-perl libwww-mechanize-perl libmime-lite-perl python-icalendar libhtml-clean-perl python-numpy python-nltk python-pip python-tidylib
+sudo apt-get -y install libxml-simple-perl libwww-perl python-requests python-bs4 python-yaml libmail-pop3client-perl libmail-imapclient-perl libdigest-hmac-perl libemail-simple-perl libdate-manip-perl libjson-perl libwww-mechanize-perl libmime-lite-perl python-icalendar libhtml-clean-perl python-numpy python-nltk python-pip python-tidylib python-mechanize python-autopep8
 
 #pip install html5print
 
