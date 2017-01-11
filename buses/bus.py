@@ -11,7 +11,8 @@ import bs4
 import re
 import os
 
-os.chdir(os.path.dirname(sys.argv[0]))
+real=os.path.realpath(sys.argv[0])
+os.chdir(os.path.dirname(real))
 
 sp = re.compile(r"\s+", re.MULTILINE|re.UNICODE)
 
