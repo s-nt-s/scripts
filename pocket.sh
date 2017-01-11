@@ -3,5 +3,10 @@ if [ $# -ne 1 ]; then
   echo "Uso: `basename $0` <url>" 1>&2
   exit 0
 fi
-echo "$1" | mail -s "$1" add@getpocket.com
+URL=$(curl -sLI "$1" | grep -i Location | sed 's/^Location:\s*//')
+if [ -z "$URL" ]; then
+	URL=$1
+fi
+echo "$URL" | mail -s "$1" add@getpocket.com
+echo "$URL enviada a pocket"
 exit $?
