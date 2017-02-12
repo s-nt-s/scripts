@@ -27,7 +27,7 @@ podc = guion.sub("_",podc)
 
 podc=mays.sub(r"\1[_ \\-]*\2",podc)
 podc=muml.sub(r"\1[_ \\-]*\2",podc)
-clean = re.compile("^.*"+podc+"[_ \\-]*")
+clean = re.compile("^.*"+podc+"[_ \\-]*", re.IGNORECASE)
 
 titu = clean.sub("",titu)
 titu = fecha.sub("",titu)
