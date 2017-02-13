@@ -3,9 +3,16 @@ import hexchat
 __module_name__        = "noevents"
 __module_version__     = "1.0"
 __module_description__ = "Ignores channel events messages"
- 
+
+def not_ignore():
+  if not hexchat.get_info("channel"):
+    return True
+  return len(hexchat.get_list("users"))<=100
+
 def voice_event(word, word_eol, userdata):
-    return hexchat.EAT_HEXCHAT
+  if not_ignore():
+    return hexchat.EAT_NONE
+  return hexchat.EAT_HEXCHAT
  
 ignore=[
   "Channel Voice",
