@@ -20,6 +20,15 @@ ignore=[
   "Channel Mode Generic",
   "Channel Ban",
   "Channel UnBan",
+  "Channel Operator",
+  "Channel Remove Invite",
+  "Channel INVITE",
+  "Channel Mode Generic",
+  "Channel Half-Operator",
+  "Channel DeHalfOp",
+  "Channel DeOp",
+  "Channel Exempt",
+  "Channel Quiet",
   "Change Nick",
   "Kick"
 ] 
