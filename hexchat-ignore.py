@@ -7,8 +7,15 @@ __module_description__ = "Ignores channel events messages"
 def voice_event(word, word_eol, userdata):
     return hexchat.EAT_HEXCHAT
  
-hexchat.hook_print("Channel Voice", voice_event)
-hexchat.hook_print("Channel DeVoice", voice_event)
-hexchat.hook_print("Channel Mode Generic", voice_event)
-hexchat.hook_print("Channel Ban", voice_event)
-hexchat.hook_print("Channel UnBan", voice_event)
+ignore=[
+  "Channel Voice",
+  "Channel DeVoice",
+  "Channel Mode Generic",
+  "Channel Ban",
+  "Channel UnBan",
+  "Change Nick",
+  "Kick"
+] 
+
+for i in ignore:
+  hexchat.hook_print(i, voice_event)
