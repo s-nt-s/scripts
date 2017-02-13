@@ -32,7 +32,11 @@ with open('bus.json') as data_file:
 		for p in paradas:
 			if "tipo" not in buscado[p] or tipo not in buscado[p]["tipo"]:
 				del buscado[p]
-		paradas=buscado.keys()
+	else:
+		for p in paradas:
+			if "oculto" in buscado[p]:
+				del buscado[p]
+	paradas=buscado.keys()
 
 buses=[]
 for b in buscado:
