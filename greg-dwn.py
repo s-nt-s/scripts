@@ -37,6 +37,7 @@ date=date[5:].replace("-",".")
 
 destino=dirc+"/"+date+"-"+titu+ext
 
+print(link)
 print(destino)
 
 urlretrieve(link, destino)
