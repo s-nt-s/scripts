@@ -3,7 +3,7 @@ if [ $# -ne 1 ]; then
   echo "Uso: `basename $0` <url>" 1>&2
   exit 0
 fi
-URL=$(curl -sLI "$1" | grep -i Location | sed 's/^Location:\s*//')
+URL=$(curl -sLI "$1" | grep -i Location | sed 's/^Location:\s*//' | sed 's/\s*$//' )
 if [ -z "$URL" ]; then
 	URL=$1
 fi
