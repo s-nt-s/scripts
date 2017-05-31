@@ -27,13 +27,18 @@ podc = guion.sub("_",podc)
 
 podc=mays.sub(r"\1[_ \\-]*\2",podc)
 podc=muml.sub(r"\1[_ \\-]*\2",podc)
-clean = re.compile("^.*"+podc+"[_ \\-]*", re.IGNORECASE)
+clean1 = re.compile("^.*?"+podc+"[_ \\-]*", re.IGNORECASE)
+clean2 = re.compile("[_ \\-]*"+podc+"[_ \\-]*$", re.IGNORECASE)
 
-titu = clean.sub("",titu)
+titu = clean1.sub("",titu)
 titu = fecha.sub("",titu)
+titu = clean2.sub("", titu)
 titu = trim.sub("",titu)
 
-date=date[5:].replace("-",".")
+md=date[5:].split("-")
+
+date = "%X" % int(md[0])
+date = date + "." + md[1]
 
 destino=dirc+"/"+date+"-"+titu+ext
 
