@@ -27,6 +27,7 @@ xfconf-query -c xfwm4 -p /general/wrap_resistance -s 5
 xfconf-query -c xfwm4 -p /general/button_layout -s 'O|HMC'
 xfconf-query -c xfwm4 -p /general/box_resize -s true
 xfconf-query -c xfwm4 -p /general/box_move -s true
+xfconf-query -c xfwm4 -p /general/scroll_workspaces -s false
 xfconf-query -c xfce4-notifyd -p /initial-opacity -s 1
 xfconf-query -c xfce4-notifyd -p /notify-location -s 3
 xfconf-query -c xsettings -p /Net/IconThemeName -s gnome-brave
