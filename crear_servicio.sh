@@ -45,5 +45,7 @@ done
 if [ "$COUNT" -ne 0 ]; then
 	echo "Servicios creados:"
 	ls -l $OKS | sed 's/[^\/]*/\t/'
-    echo "Falta habilitarlos e iniciarlos"
+    echo "Falta habilitarlos e iniciarlos:"
+    echo "	sudo systemctl daemon-reload"
+    echo "	sudo systemctl enable $CMD.service"
 fi
