@@ -1,3 +1,4 @@
 *.db
 bus.json
-
+cert/certbot-auto
+cert/lectl
