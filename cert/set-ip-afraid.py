@@ -1,24 +1,16 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import bs4
-import requests
-from bunch import Bunch
-import json
 import argparse
 import os
-from unicodedata import normalize
-import enchant
-import re
-from urllib.parse import urlencode, urljoin
-import sys
-from datetime import datetime
-import sys
 from getpass import getpass
 import hashlib
-from urllib.request import urlretrieve
-import ipgetter
 import requests
+import re
+
+get_ip = re.compile(r" (\d+\.\d+\.\d+\.\d+) ")
+not_ch = re.compile(r"ERROR: Address (\d+\.\d+\.\d+\.\d+) has not changed\.")
+
 
 parser = argparse.ArgumentParser(description='Set ip in domains of freedns.afraid.org')
 parser.add_argument('--own-dir', action='store_true', help="Move to script's directory")
@@ -44,18 +36,35 @@ else:
     with open(arg.key, "r") as f:
         key = f.read()
 
-CURRENT_IP = ipgetter.myip()
 url = "http://freedns.afraid.org/api/?action=getdyndns&v=2&sha="+key
 r = requests.get(url)
 
+doms = {}
 for l in r.text.strip().split("\n"):
     l = l.strip()
     data = l.split("|")
     if len(data)==3:
         dom, ip, url = data
-        if CURRENT_IP != ip:
-            print ("%s from %s to %s" % (dom, ip, CURRENT_IP))
-            r = requests.get(url)
-            print (r.text.strip())
+        doms[dom] = (ip, url)
+
+keys = sorted(doms.keys())
+re_doms = re.compile(r"\b("+ "|".join([re.escape(d) for d in keys]) + r")\b")
+done = set()
+myip = None
+
+for k in keys:
+    if k not in done:
+        ip, url = doms[k]
+        if ip == myip:
+            continue
+        r = requests.get(url)
+        r = r.text.strip()
+        m = not_ch.match(r)
+        if m:
+            myip = m.group(1)
+            continue
+        print (r)
+        if r.startswith("Updated "):
+            done = done.union(set(re_doms.findall(r)))
             
 
