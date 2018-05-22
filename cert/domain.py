@@ -11,6 +11,7 @@ import re
 from urllib.parse import urlencode, urljoin
 import sys
 from datetime import datetime, date, timedelta
+import time
 
 url_afraid = "https://freedns.afraid.org/domain/registry/page-%s.html"
 s = requests.Session()
@@ -37,9 +38,17 @@ word_dict = {
 }
 re_vowel = re.compile(r"[aeiou]", re.IGNORECASE)
 re_sp = re.compile(r"\s+")
+re_date = re.compile(r'\d+/\d+/\d+')
 
-def get(url):
-    r = s.get(url)
+def get(url, tried=0):
+    r = None
+    try:
+        r = s.get(url)
+    except Exception as e:
+        if tried>3:
+            raise e from None
+        time.sleep(10)
+        return get(url, tried=tried+1)
     soup = bs4.BeautifulSoup(r.text, "lxml")
     return soup
 
@@ -123,7 +132,7 @@ def get_domains(soup):
 
 
 class Domain():
-    DEF_ATTR = ("letsencrypt", "create_letsencrypt", "langs", "create")
+    DEF_ATTR = ("letsencrypt", "create_letsencrypt", "langs", "create", "owner")
 
     @staticmethod
     def from_afraid():
@@ -173,7 +182,6 @@ class Domain():
         if isinstance(data, tuple):
             self.dom = data[3]
             self.public = data[1] == "1"
-            self.owner = None
             self.create = datetime.strptime(data[0], "%Y-%m-%d").date()
             self.hosts = int(data[2])
         elif isinstance(data, dict):
@@ -193,16 +201,21 @@ class Domain():
             self.dom = data[0].find("a").get_text().strip()
             self.public = data[1].get_text().strip() == "public"
             self.owner = data[2].find("a").get_text().strip()
-            old = int(data[3].get_text().strip().split(" ")[0])
-            self.create = (now - timedelta(days=old))
             self.hosts = int(data[0].find("span").get_text().strip()[1:].split(" ")[0])
+            
+            str_create = re_date.search(data[3].get_text()).group()
+            self.create = datetime.strptime(str_create, "%m/%d/%Y").date()
         for attr in Domain.DEF_ATTR:
             if attr not in self.__dict__.keys():
                 setattr(self, attr, None)
 
     @property
     def top(self):
-        return self.dom.split(".")[-1]
+        return self.dom[self.dom.rindex(".")+1:]
+
+    @property
+    def name(self):
+        return self.dom[:self.dom.rindex(".")]
 
     @property
     def key(self):
@@ -240,18 +253,40 @@ class Domain():
                 dct[k] = v
         return dct
 
-    def get_lang(self):
+    def load_langs(self):
         if self.langs is None:
             steps = self.dom.split(".")[:-1]
+            steps.append(self.dom.replace(".",""))
             self.langs = get_lang_phrase(*steps)
         return self.langs
 
     def is_cool(self):
-        return len(self.top)<4 or get_lang_word(self.top)
+        if self.dom.count(".")>1:
+            return False
+        if self.dom.count("--")>0:
+            return False
+        lname = len(self.name)
+        if lname<3:
+            return True
+        if lname>14:
+            return False
+        if self.name.isdigit() and lname<5:
+            return True
+        if not re_vowel.search(self.name):
+            return False
+        if lname<4 and self.dom.count("-")==0:
+            return True
+        if len(self.top)>4 and not get_lang_word(self.top):
+            return False
+        if self.load_langs():
+            return True
+        return False
 
     def count_letsencrypt(self):
         if self.letsencrypt is None:
             self.letsencrypt, self.create_letsencrypt = count_letsencrypt(self.dom)
+        if not self.create_letsencrypt:
+            self.create_letsencrypt = tuple()
         return self.letsencrypt
     
     def __hash__(self):

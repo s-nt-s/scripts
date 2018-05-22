@@ -34,7 +34,7 @@ if not os.path.isfile(arg.key):
         f.write(key)
 else:
     with open(arg.key, "r") as f:
-        key = f.read()
+        key = f.read().strip()
 
 url = "http://freedns.afraid.org/api/?action=getdyndns&v=2&sha="+key
 r = requests.get(url)

@@ -15,11 +15,11 @@ import sys
 from datetime import datetime
 from domain import Domain
 import sys
-
+z
 parser = argparse.ArgumentParser(description='Search in freedns.afraid.org')
 parser.add_argument('--refresh', action='store_true')
 parser.add_argument('--input', type=str, default="domains-all.txt")
-parser.add_argument("save", type=str, nargs='?', help="Save result in json")
+parser.add_argument("out", type=str, nargs='?', help="Save result in json")
 arg = parser.parse_args()
 
 if arg.refresh or not os.path.isfile(arg.input):
@@ -30,13 +30,22 @@ if arg.refresh or not os.path.isfile(arg.input):
 else:
     domains = Domain.load(arg.input)
 
+error = None
 res=[]
 for d in domains:
-    if d.public and d.dom.count(".")<=1 and d.old>7 and d.get_lang():
-        if d.is_cool() and d.recent_letsencrypt>30:
-            print (d.dom)
-            res.append(d)
+    if d.public and d.old>7 and d.is_cool():
+        try:
+            if d.recent_letsencrypt<20:
+                print (d.dom)
+                res.append(d)
+        except Exception as e:
+            error = e
+            break
 
-if arg.save:
-    Domain.store(arg.save, res)
+if arg.out:
+    Domain.store(arg.out, res)
 
+Domain.store("domains-all.json", domains)
+
+if error:
+    raise error from None
