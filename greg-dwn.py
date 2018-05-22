@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import os
 from urllib.request import urlretrieve
 import re
+from urllib.error import HTTPError
 
 guion = re.compile(r"__+")
 fecha = re.compile(r"[_ \-]*\d\d[/_]\d\d[/_]\d\d[_ \-]*$")
@@ -45,4 +46,10 @@ destino=dirc+"/"+date+"-"+titu+ext
 print(link)
 print(destino)
 
-urlretrieve(link, destino)
+try:
+    urlretrieve(link, destino)
+except HTTPError as e:
+    if e.code == 404 and len(ext)==0:
+        print (str(e))
+    else:
+        raise e from None
