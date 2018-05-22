@@ -24,6 +24,16 @@ url1="http://www.cuantotardamiautobus.es/madrid/tiempos.php?t="
 cmp1="ids_parada"
 url2="http://api.interurbanos.welbits.com/v1/stop/"
 
+
+def get_json(url):
+    response = requests.get(url)
+    if response.status_code != 200:
+        return []
+    js = response.json()
+    if "lines" in js:
+        return js["lines"]
+    return js
+
 with open('bus.json') as data_file:
 	buscado = json.load(data_file)
 	paradas=buscado.keys()
@@ -69,9 +79,7 @@ def tiempos(p, buscado):
 	for i in range(0,len(p)):
 		param = param + "&" + cmp1 + "[" + str(i) + "]=" + p[i]
 
-
-	r=requests.get(url1+param)
-	j=r.json()
+	j=get_json(url1+param)
 	
 	visto=[i["linea"] for i in j]
 	paradasI=[]
@@ -83,14 +91,13 @@ def tiempos(p, buscado):
 				if bus in buscado[b]["linea"] and b not in paradasI:
 					paradasI.append(b)
 
-	for pI in paradasI:		
-		r=requests.get(url2+pI)
-		lines=r.json()["lines"]
+	for pI in paradasI:
+		lines=get_json(url2+pI)
 		for i in lines:
 			if i["lineNumber"] in busI and " min" in i["waitTime"]:
 				i["linea"]=i["lineNumber"]
 				i["segundos"]=int(i["waitTime"].split()[0])*60
-				i["destion"]=i["lineBound"]
+				i["destino"]=i["lineBound"]
 				i["parada"]=pI
 				j.append(i)
 
