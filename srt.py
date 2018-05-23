@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-import re
 import os.path
+import re
+import sys
 
 reload(sys)
 sys.setdefaultencoding('utf8')

@@ -1,20 +1,22 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import argparse
+import json
+import os
+import re
+import sys
+from datetime import datetime
+from unicodedata import normalize
+from urllib.parse import urlencode, urljoin
+
 import bs4
 import requests
 from bunch import Bunch
-import json
-import argparse
-import os
-from unicodedata import normalize
+
 import enchant
-import re
-from urllib.parse import urlencode, urljoin
-import sys
-from datetime import datetime
 from domain import Domain
-import sys
+
 z
 parser = argparse.ArgumentParser(description='Search in freedns.afraid.org')
 parser.add_argument('--refresh', action='store_true')
@@ -31,11 +33,11 @@ else:
     domains = Domain.load(arg.input)
 
 error = None
-res=[]
+res = []
 for d in domains:
-    if d.public and d.old>7 and d.is_cool():
+    if d.public and d.old > 7 and d.is_cool():
         try:
-            if d.recent_letsencrypt<20:
+            if d.recent_letsencrypt < 20:
                 print (d.dom)
                 res.append(d)
         except Exception as e:

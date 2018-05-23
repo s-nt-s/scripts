@@ -1,17 +1,19 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import bs4
-import requests
 import json
 import os
-from unicodedata import normalize
-import enchant
 import re
-from urllib.parse import urlencode, urljoin
 import sys
-from datetime import datetime, date, timedelta
 import time
+from datetime import date, datetime, timedelta
+from unicodedata import normalize
+from urllib.parse import urlencode, urljoin
+
+import bs4
+import requests
+
+import enchant
 
 url_afraid = "https://freedns.afraid.org/domain/registry/page-%s.html"
 s = requests.Session()
@@ -40,17 +42,19 @@ re_vowel = re.compile(r"[aeiou]", re.IGNORECASE)
 re_sp = re.compile(r"\s+")
 re_date = re.compile(r'\d+/\d+/\d+')
 
+
 def get(url, tried=0):
     r = None
     try:
         r = s.get(url)
     except Exception as e:
-        if tried>3:
+        if tried > 3:
             raise e from None
         time.sleep(10)
-        return get(url, tried=tried+1)
+        return get(url, tried=tried + 1)
     soup = bs4.BeautifulSoup(r.text, "lxml")
     return soup
+
 
 def get_letsencrypt():
     root = "https://crt.sh/?CAName=%25s+Encrypt%25"
@@ -59,25 +63,27 @@ def get_letsencrypt():
     for a in soup.select("td a"):
         url = urljoin(root, a.attrs["href"])
         caid = url.split("=")[-1]
-        url = "https://crt.sh/?iCAID="+caid+"&exclude=expired&p=1&n=900&Identity=" # + dom, + %.dom
+        url = "https://crt.sh/?iCAID=" + caid + \
+            "&exclude=expired&p=1&n=900&Identity="  # + dom, + %.dom
         urls.add(url)
     return urls
 
 urls_letsencrypt = get_letsencrypt()
 
+
 def count_letsencrypt(dom):
     total = 0
     dates = []
     for url in urls_letsencrypt:
-        for d in (dom, '%.'+dom):
-            soup = get(url+d)
+        for d in (dom, '%.' + dom):
+            soup = get(url + d)
             for th in soup.findAll("th"):
-                txt = re_sp.sub(" ",th.get_text()).strip()
+                txt = re_sp.sub(" ", th.get_text()).strip()
                 if txt.startswith("Certificates ("):
                     total = int(txt[14:-1])
             for tr in soup.findAll("tr"):
                 tds = tr.findAll("td")
-                if len(tds)==4:
+                if len(tds) == 4:
                     _id = tds[0].find("a").attrs["href"]
                     _cn = tds[3].get_text().strip()
                     if _id.startswith("?id=") and _cn.startswith("CN="):
@@ -88,9 +94,10 @@ def count_letsencrypt(dom):
         total = len(dates)
     return (total, dates)
 
+
 def get_lang_word(a):
     langs = set()
-    if len(a)<2:
+    if len(a) < 2:
         return langs
     if not re_vowel.search(a):
         return langs
@@ -103,7 +110,7 @@ def get_lang_word(a):
             langs.add(k)
             continue
         for s in wd.suggest(a):
-            w = normalize('NFKD', s).encode('ascii','ignore')
+            w = normalize('NFKD', s).encode('ascii', 'ignore')
             if w == a:
                 langs.add(k)
     if len(langs) == 0:
@@ -111,6 +118,7 @@ def get_lang_word(a):
         return langs
     ok_words[a] = langs
     return langs
+
 
 def get_lang_phrase(*args):
     langs = set()
@@ -120,6 +128,7 @@ def get_lang_phrase(*args):
     if len(langs) == 0:
         return None
     return tuple(langs)
+
 
 def get_domains(soup):
     doms = []
@@ -132,7 +141,8 @@ def get_domains(soup):
 
 
 class Domain():
-    DEF_ATTR = ("letsencrypt", "create_letsencrypt", "langs", "create", "owner")
+    DEF_ATTR = ("letsencrypt", "create_letsencrypt",
+                "langs", "create", "owner")
 
     @staticmethod
     def from_afraid():
@@ -142,10 +152,10 @@ class Domain():
             i += 1
             soup = get(url_afraid % i)
             doms = get_domains(soup)
-            if len(doms)==0:
+            if len(doms) == 0:
                 domains = list(set(domains))
                 domains.sort(key=lambda d: d.key)
-                return  domains
+                return domains
             domains.extend(doms)
         return domains
 
@@ -158,7 +168,7 @@ class Domain():
                 if ext == "txt":
                     for l in f.readlines():
                         l = l.strip()
-                        if len(l)>0:
+                        if len(l) > 0:
                             domains.append(Domain(tuple(l.split())))
                 elif ext == "json":
                     domains.extend([Domain(j) for j in json.load(f)])
@@ -173,7 +183,7 @@ class Domain():
         with open(fl, "w") as f:
             if ext == "txt":
                 for d in domains:
-                    f.write(str(d)+"\n")
+                    f.write(str(d) + "\n")
             elif ext == "json":
                 doms = [d.to_dict() for d in domains]
                 json.dump(doms, f, sort_keys=True, indent=4)
@@ -187,7 +197,7 @@ class Domain():
         elif isinstance(data, dict):
             for k, v in data.items():
                 if k.startswith("dt_") and v:
-                    k=k[3:]
+                    k = k[3:]
                     if isinstance(v, str):
                         v = datetime.strptime(v, "%Y-%m-%d").date()
                     else:
@@ -201,8 +211,9 @@ class Domain():
             self.dom = data[0].find("a").get_text().strip()
             self.public = data[1].get_text().strip() == "public"
             self.owner = data[2].find("a").get_text().strip()
-            self.hosts = int(data[0].find("span").get_text().strip()[1:].split(" ")[0])
-            
+            self.hosts = int(data[0].find(
+                "span").get_text().strip()[1:].split(" ")[0])
+
             str_create = re_date.search(data[3].get_text()).group()
             self.create = datetime.strptime(str_create, "%m/%d/%Y").date()
         for attr in Domain.DEF_ATTR:
@@ -211,7 +222,7 @@ class Domain():
 
     @property
     def top(self):
-        return self.dom[self.dom.rindex(".")+1:]
+        return self.dom[self.dom.rindex(".") + 1:]
 
     @property
     def name(self):
@@ -232,8 +243,8 @@ class Domain():
         day_limit = 7
         for d in self.create_letsencrypt:
             days = (now - d).days
-            if (days)<day_limit:
-                recent +=1
+            if (days) < day_limit:
+                recent += 1
         return recent
 
     def to_dict(self):
@@ -256,27 +267,27 @@ class Domain():
     def load_langs(self):
         if self.langs is None:
             steps = self.dom.split(".")[:-1]
-            steps.append(self.dom.replace(".",""))
+            steps.append(self.dom.replace(".", ""))
             self.langs = get_lang_phrase(*steps)
         return self.langs
 
     def is_cool(self):
-        if self.dom.count(".")>1:
+        if self.dom.count(".") > 1:
             return False
-        if self.dom.count("--")>0:
+        if self.dom.count("--") > 0:
             return False
         lname = len(self.name)
-        if lname<3:
+        if lname < 3:
             return True
-        if lname>14:
+        if lname > 14:
             return False
-        if self.name.isdigit() and lname<5:
+        if self.name.isdigit() and lname < 5:
             return True
         if not re_vowel.search(self.name):
             return False
-        if lname<4 and self.dom.count("-")==0:
+        if lname < 4 and self.dom.count("-") == 0:
             return True
-        if len(self.top)>4 and not get_lang_word(self.top):
+        if len(self.top) > 4 and not get_lang_word(self.top):
             return False
         if self.load_langs():
             return True
@@ -284,11 +295,12 @@ class Domain():
 
     def count_letsencrypt(self):
         if self.letsencrypt is None:
-            self.letsencrypt, self.create_letsencrypt = count_letsencrypt(self.dom)
+            self.letsencrypt, self.create_letsencrypt = count_letsencrypt(
+                self.dom)
         if not self.create_letsencrypt:
             self.create_letsencrypt = tuple()
         return self.letsencrypt
-    
+
     def __hash__(self):
         return hash(self.dom)
 

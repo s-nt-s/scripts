@@ -1,33 +1,40 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import argparse
-import requests
-import sys
 import re
-from requests.auth import HTTPBasicAuth
+import sys
 from collections import Counter
 
-parser = argparse.ArgumentParser(description='Abre y cierra puertos en router CG3300CMR')
+import requests
+from requests.auth import HTTPBasicAuth
+
+parser = argparse.ArgumentParser(
+    description='Abre y cierra puertos en router CG3300CMR')
 parser.add_argument('--usuario', help='Usuario del router', default="admin")
 parser.add_argument('--clave', help='Clave del router', default="password")
 parser.add_argument('--ip', help='Ip local')
 parser.add_argument('--abrir', help='Puerto a abrir', type=int)
-parser.add_argument('--tipo', help='Tipo del puerto', choices=['TCP/UDP','TCP','UDP'], default="TCP/UDP", action="store")
+parser.add_argument('--tipo', help='Tipo del puerto',
+                    choices=['TCP/UDP', 'TCP', 'UDP'], default="TCP/UDP", action="store")
 parser.add_argument('--nombre', help='Nombre para identificar el envio')
 parser.add_argument('--borrar', help='Cierra la regla indicada', type=int)
-parser.add_argument('--listar', help='Lista las reglas creadas', action="store_true")
+parser.add_argument(
+    '--listar', help='Lista las reglas creadas', action="store_true")
 
 arg = parser.parse_args()
 
 re_listado = re.compile(r'forwardingArray\d+\s*=\s*"\s*([^"]+)"')
 
 if not(arg.abrir or arg.listar or arg.borrar):
-    sys.exit("Tienes que elegir una de estas opciones: --listar, --borrar, --abrir --help")
+    sys.exit(
+        "Tienes que elegir una de estas opciones: --listar, --borrar, --abrir --help")
 
-auth=HTTPBasicAuth(arg.usuario, arg.clave)
+auth = HTTPBasicAuth(arg.usuario, arg.clave)
+
 
 def listado():
-    r = requests.post('http://192.168.1.1/RgPortForwardingPortTriggering.htm', auth=auth)
+    r = requests.post(
+        'http://192.168.1.1/RgPortForwardingPortTriggering.htm', auth=auth)
     s = []
     match = re_listado.findall(r.text)
     max_count = len(str(len(match)))
@@ -37,21 +44,22 @@ def listado():
         sp = i.split(" ")
         ip = sp[-4]
         pt = sp[-5]
-        nb = " ".join(sp[0:-9]).replace("&#38;harr;"," ")
-        max_iport = max(max_iport,len(ip+pt)+1)
-        s.append((c, ip+":"+pt, nb))
-        c = c +1
+        nb = " ".join(sp[0:-9]).replace("&#38;harr;", " ")
+        max_iport = max(max_iport, len(ip + pt) + 1)
+        s.append((c, ip + ":" + pt, nb))
+        c = c + 1
     return s
+
 
 def print_listado():
     lista = listado()
-    if len(lista)==0:
+    if len(lista) == 0:
         print "No hay puertos abiertos"
         return
     max_count = len(str(len(lista)))
     max_iport = max(map(lambda x: len(x[1]), lista))
 
-    patron = "%"+str(max_count)+"d - %-"+str(max_iport)+"s %s"
+    patron = "%" + str(max_count) + "d - %-" + str(max_iport) + "s %s"
     for i in lista:
         print patron % i
 
@@ -67,7 +75,7 @@ if arg.listar or arg.borrar:
 
 if not arg.ip:
     lista = listado()
-    if len(lista)==0:
+    if len(lista) == 0:
         sys.exit("Necesita indicar la ip local con --ip")
     ips = map(lambda x: x[1].split(":")[0], lista)
     b = Counter(ips)
@@ -76,7 +84,7 @@ if not arg.ip:
 if not arg.nombre:
     arg.nombre = arg.ip + ":" + str(arg.abrir)
 else:
-    arg.nombre = arg.nombre.replace(" ","_")
+    arg.nombre = arg.nombre.replace(" ", "_")
 
 ip_split = arg.ip.split(".")
 
@@ -100,5 +108,6 @@ data = {
     "PortForwardingCustomLocalIP3": ip_split[3]
 }
 
-r = requests.post('http://192.168.1.1/RgPortForwardingPortTriggering.htm', data=data, auth=auth)
+r = requests.post(
+    'http://192.168.1.1/RgPortForwardingPortTriggering.htm', data=data, auth=auth)
 print_listado()
