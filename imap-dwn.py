@@ -12,15 +12,13 @@ import re
 
 
 parser = argparse.ArgumentParser(description="Download attachments from IMAP")
-parser.add_argument("config", help="Config Yaml File")
-parser.add_argument('--create', action='store_true', help='Create an example config file')
+parser.add_argument("config", nargs='?', help="Config Yaml File")
+parser.add_argument('--example', action='store_true', help='Show an example config file')
 args = parser.parse_args()
 
-if args.create:
-    if os.path.isfile(args.config):
-        sys.exit(args.config+" it already exists")
-    with open(args.config, 'w') as f:
-        f.write(r'''user: my@mail.com
+if args.example:
+    print("#!"+os.path.abspath(__file__)+r'''
+user: my@mail.com
 pass: ******
 imap: imap.mail.com
 label: Trabajo/Nomina
@@ -40,10 +38,12 @@ subs:
   - ['\b(septiembre)\b', '09']
   - ['\b(octubre)\b',    '10']
   - ['\b(noviembre)\b',  '11']
-  - ['\b(diciembre)\b',  '12']
-''')
+  - ['\b(diciembre)\b',  '12']''')
     sys.exit()
 
+if not args.config:
+    sys.exit("config arguments are required when --example is not present")
+    
 if not os.path.isfile(args.config):
     sys.exit(args.config+" doesn't exist")
 
