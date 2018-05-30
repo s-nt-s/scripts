@@ -13,7 +13,7 @@ import re
 
 parser = argparse.ArgumentParser(description="Download attachments from IMAP")
 parser.add_argument("config", help="Config Yaml File")
-parser.add_argument('--create', action='store_true', help='Create a example config file')
+parser.add_argument('--create', action='store_true', help='Create an example config file')
 args = parser.parse_args()
 
 if args.create:
