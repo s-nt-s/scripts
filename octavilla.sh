@@ -55,20 +55,22 @@ function build_page {
     height=$(echo $size | cut -d' ' -f2)
     pdf2ps "$1.pdf" "$1.ps"
     psnup -W${width} -H${height} -pa4 -9 "$1.ps" "$1_oct.ps"
+
     if [ $1 -eq 1 ]; then
-        # Ancho: 841,68
-        #  Alto: 595,44
+        # Guias para cortar
+        # Ancho: 842
+        #  Alto: 595
         cp "$1_oct.ps" "$1_oct.bak.ps"
         cat > "$1_oct.ps" <<EOF
 << /BeginPage
 {
     0.7 setgray
     
-    5 280.56 moveto 590.44 280.56 lineto stroke
-    5 561.12 moveto 590.44 561.12 lineto stroke
+    5 280.66 moveto 590 280.66 lineto stroke
+    5 561.33 moveto 590 561.33 lineto stroke
 
-    198.48 5 moveto 198.48 836.68 lineto stroke
-    396.96 5 moveto 396.96 836.68 lineto stroke
+    198.33 5 moveto 198.33 837 lineto stroke
+    396.66 5 moveto 396.66 837 lineto stroke
 }
 >> setpagedevice
 EOF
