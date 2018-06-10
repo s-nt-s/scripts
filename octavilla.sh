@@ -66,11 +66,11 @@ function build_page {
 {
     0.7 setgray
     
-    5 280.66 moveto 590 280.66 lineto stroke
-    5 561.33 moveto 590 561.33 lineto stroke
+    0 280.66 moveto 595 280.66 lineto stroke
+    0 561.33 moveto 595 561.33 lineto stroke
 
-    198.33 5 moveto 198.33 837 lineto stroke
-    396.66 5 moveto 396.66 837 lineto stroke
+    198.33 0 moveto 198.33 842 lineto stroke
+    396.66 0 moveto 396.66 842 lineto stroke
 }
 >> setpagedevice
 EOF
