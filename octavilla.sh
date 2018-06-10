@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ $# -eq 0 ]] ; then
-    echo 'Tienes que pasar un fichero como argumento'
+    echo "Tienes que pasar un fichero como argumento"
     exit 0
 fi
 
