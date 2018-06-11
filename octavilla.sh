@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $# -eq 0 ]] ; then
+if [[ $# -eq 0 ]]; then
     echo "Tienes que pasar un fichero como argumento"
     exit 0
 fi
@@ -10,23 +10,45 @@ if [[ ! -f "$1" ]]; then
     exit 0
 fi
 
+CMD=$(basename "$0")
 ITER=9
 
+# Guias para cortar
+# Ancho: 842
+#  Alto: 595
 if [ $ITER -eq 9 ]; then
-    read -r -d '' GRID <<EOF
-<< /BeginPage
-{
-    0.7 setgray
-
+    read -r -d '' LINES <<EOF
     0 280.66 moveto 595 280.66 lineto stroke
     0 561.33 moveto 595 561.33 lineto stroke
 
     198.33 0 moveto 198.33 842 lineto stroke
     396.66 0 moveto 396.66 842 lineto stroke
+EOF
+elif [ $ITER -eq 8 ]; then
+    read -r -d '' LINES <<EOF
+    0 210.5 moveto 595 210.5 lineto stroke
+    0 421 moveto 595 421 lineto stroke
+    0 631.5 moveto 595 631.5 lineto stroke
+
+    297.5 0 moveto 297.5 842 lineto stroke
+EOF
+elif [ $ITER -eq 4 ]; then
+    read -r -d '' LINES <<EOF
+    0 421 moveto 595 421 lineto stroke
+
+    297.5 0 moveto 297.5 842 lineto stroke
+EOF
+fi
+
+read -r -d '' GRID <<EOF
+<< /BeginPage
+{
+    0.7 setgray
+
+    $LINES
 }
 >> setpagedevice
 EOF
-fi
 
 SOURCE=$(realpath -- "$1")
 
@@ -50,7 +72,7 @@ if [[ "$extension" != "pdf" ]]; then
     fi
 else
     cp "$SOURCE" "$WORKCOPY"
-    OUTPUT="${OUTPUT}_3x3"
+    OUTPUT="${OUTPUT}_${ITER}"
 fi
 
 pages=$(pdfinfo "$WORKCOPY" | grep Pages | awk '{print $2}')
@@ -62,8 +84,7 @@ fi
 
 function build_page {
     PAG=""
-    for (( c=1; c<=$ITER; c++ ))
-    do
+    for (( c=1; c<=$ITER; c++ )); do
         PAG="$PAG $1"
     done
     pdftk "$WORKCOPY" cat $PAG output "$1.pdf"
@@ -80,9 +101,6 @@ function build_page {
     psnup -W${width} -H${height} -pa4 -${ITER} "$1.ps" "$1_oct.ps"
 
     if [ $1 -eq 1 ]; then
-        # Guias para cortar
-        # Ancho: 842
-        #  Alto: 595
         cp "$1_oct.ps" "$1_oct.bak.ps"
         echo $GRID > "$1_oct.ps"
         cat "$1_oct.bak.ps" >> "$1_oct.ps"
