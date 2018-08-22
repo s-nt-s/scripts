@@ -81,8 +81,10 @@ if typ != 'OK':
     print ('Not able to sign in!')
     raise
 
-if "label" in config:
-    imapSession.select(config["label"])
+typ, data = imapSession.select(config.get("label", "INBOX"))
+if typ != 'OK':
+    print (str(data[0], 'utf-8'))
+    raise
 
 typ, data = imapSession.search(None, 'ALL')
 if typ != 'OK':
@@ -109,7 +111,7 @@ for msgId in data[0].split():
         if bool(fileName):
             fileName = decode_header(fileName)[0][0]
             if not isinstance(fileName, str):
-                fileName = str(fileName, 'utf-8')
+                fileName = str(fileName, 'utf-8', 'ignore')
             old_fileName = fileName
             
             if config.get("lower", False):

@@ -25,7 +25,6 @@ Categories=GNOME;GTK;Network;WebBrowser;
 MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;
 StartupNotify=true
 EOL
-
     fi
   fi
 done
@@ -54,7 +53,6 @@ MimeType=text/html;text/xml;application/xhtml_xml;x-scheme-handler/http;x-scheme
 StartupWMClass=Chromium-browser
 StartupNotify=true
 EOL
-
   fi
 done
 
