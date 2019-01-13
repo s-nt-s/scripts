@@ -13,7 +13,7 @@ sudo pip install PySocks
 #pip install html5print
 
 # comandos
-sudo apt-get -y install youtube-dl wput git members deborphan realpath zip make gcc pdftk uchardet html-xml-utils libav-tools
+sudo apt-get -y install youtube-dl wput git members deborphan realpath zip make gcc pdftk uchardet html-xml-utils libav-tools dnsutils
 #ffmpeg
 
 #enca

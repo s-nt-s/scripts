@@ -4,6 +4,7 @@ import argparse
 import re
 import sys
 from collections import Counter
+import socket
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -32,7 +33,7 @@ if not(arg.abrir or arg.listar or arg.borrar):
 auth = HTTPBasicAuth(arg.usuario, arg.clave)
 
 
-def listado():
+def get_listado():
     r = requests.post(
         'http://192.168.1.1/RgPortForwardingPortTriggering.htm', auth=auth)
     s = []
@@ -50,9 +51,15 @@ def listado():
         c = c + 1
     return s
 
+def my_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
 
 def print_listado():
-    lista = listado()
+    lista = get_listado()
     if len(lista) == 0:
         print "No hay puertos abiertos"
         return
@@ -74,12 +81,16 @@ if arg.listar or arg.borrar:
     sys.exit(0)
 
 if not arg.ip:
-    lista = listado()
-    if len(lista) == 0:
-        sys.exit("Necesita indicar la ip local con --ip")
-    ips = map(lambda x: x[1].split(":")[0], lista)
-    b = Counter(ips)
-    arg.ip, _ = b.most_common(1)[0]
+    lista = get_listado()
+    if len(lista) > 0:
+        ips = map(lambda x: x[1].split(":")[0], lista)
+        b = Counter(ips)
+        arg.ip, _ = b.most_common(1)[0]
+    else:
+        arg.ip = my_local_ip()
+
+if not arg.ip:
+    sys.exit("Necesita indicar la ip local con --ip")
 
 if not arg.nombre:
     arg.nombre = arg.ip + ":" + str(arg.abrir)

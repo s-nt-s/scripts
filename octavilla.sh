@@ -2,7 +2,6 @@
 
 if [[ $# -eq 0 ]]; then
     echo "Tienes que pasar un fichero como argumento"
-    exit 0
 fi
 
 if [[ ! -f "$1" ]]; then
@@ -10,13 +9,19 @@ if [[ ! -f "$1" ]]; then
     exit 0
 fi
 
-CMD=$(basename "$0")
+OPTS='^[489]$'
 ITER=9
+
+if [[ $2 =~ $OPTS ]]; then
+    ITER="$2"
+fi
 
 # Guias para cortar
 # Ancho: 842
 #  Alto: 595
 if [ $ITER -eq 9 ]; then
+    echo "Octavilla 3x3"
+
     read -r -d '' LINES <<EOF
     0 280.66 moveto 595 280.66 lineto stroke
     0 561.33 moveto 595 561.33 lineto stroke
@@ -25,6 +30,8 @@ if [ $ITER -eq 9 ]; then
     396.66 0 moveto 396.66 842 lineto stroke
 EOF
 elif [ $ITER -eq 8 ]; then
+    echo "Octavilla 2x4"
+
     read -r -d '' LINES <<EOF
     0 210.5 moveto 595 210.5 lineto stroke
     0 421 moveto 595 421 lineto stroke
@@ -33,6 +40,8 @@ elif [ $ITER -eq 8 ]; then
     297.5 0 moveto 297.5 842 lineto stroke
 EOF
 elif [ $ITER -eq 4 ]; then
+    echo "Octavilla 2x2"
+
     read -r -d '' LINES <<EOF
     0 421 moveto 595 421 lineto stroke
 
