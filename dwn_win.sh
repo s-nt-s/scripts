@@ -49,7 +49,7 @@ function dwn() {
         echo "" >> "$DST/dwn.log"
 
         DOM=$(echo $URL | awk -F/ '{print $3}')
-        
+
         echo "[$NAME]($NAME) <small>from [$DOM]($URL)</small>" >> "$DST/index.md"
         echo "" >> "$DST/index.md"
 	fi
@@ -87,7 +87,6 @@ for url in $(lynx -listonly -nonumbers -dump https://www.7-zip.org/download.html
     dwn "7z" 0 "$url"
 done
 
-
 for url in $(lynx -listonly -nonumbers -dump http://strawberryperl.com/releases.html | grep "\.\(exe\|msi\|zip\)$" | head -n 4); do
     dwn strawberryperl 0 "$url"
 done
@@ -96,5 +95,12 @@ for url in $(lynx -listonly -nonumbers -dump https://www.python.org/downloads/wi
     dwn python 0 "$url"
 done
 
+for url in $(lynx -listonly -nonumbers -dump http://www.aimp2.us/aimpl.php | grep "\.zip$"); do
+    dwn aimp2 32 "$url"
+done
+
+for url in $(lynx -listonly -nonumbers -dump "https://www.aimp.ru/?do=download" | grep "\.exe" | head -n 1); do
+    dwn aimp 32 "$url"
+done
 
 find "$TARGET" -name "index.md" | sed 's/\.[^\.]*$//' | xargs -I {} pandoc -s --from markdown --to html5 {}.md -o {}.html
