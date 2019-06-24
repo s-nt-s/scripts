@@ -96,6 +96,7 @@ def post():
 
 msg=post()
 if msg:
+    print(msg)
     for r in recipient.split("|||"):
         bot=SendMsgBot()
         bot.run(r, msg)
