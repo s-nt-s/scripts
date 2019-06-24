@@ -9,8 +9,9 @@ import re
 import os
 import sleekxmpp
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                        format='%(levelname)-8s %(message)s')
+import time
+
+#logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
 
 dr = os.path.dirname(os.path.realpath(__file__))
 
@@ -30,17 +31,23 @@ class SendMsgBot(sleekxmpp.ClientXMPP):
         self.recipient = None
         self.msg = None
         self.use_ipv6 = False
+        self.auto_reconnect = True
+        self.register_plugin('xep_0030') # Service Discovery
+        self.register_plugin('xep_0004') # Data Forms
+        self.register_plugin('xep_0060') # PubSub
+        self.register_plugin('xep_0199') # XMPP Ping
         self.add_event_handler("session_start", self.start)
 
     def start(self, event):
         self.send_presence()
         self.get_roster()
+        time.sleep(5)
         self.send_message(mto=self.recipient,
                           mbody=self.msg,
                           mtype='chat')
         self.disconnect(wait=True)
 
-    def send(self, recipient, message):
+    def run(self, recipient, message):
         self.recipient = recipient
         self.msg = message
         if self.connect():
@@ -85,11 +92,10 @@ def post():
     despues = re_br.sub("\n\n", despues)
     if despues.replace("\n","")==void:
         return None
-    return despues
+    return despues+"\n\nFuente: "+url
 
 msg=post()
 if msg:
     for r in recipient.split("|||"):
-        print(r)
         bot=SendMsgBot()
-        bot.send(r, msg)
+        bot.run(r, msg)
