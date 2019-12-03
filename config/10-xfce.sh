@@ -32,6 +32,8 @@ xfconf-query -c xfwm4 -p /general/workspace_count -s 1
 xfconf-query -c xfwm4 -p /general/workspace_names -s "[1]" -s "[2]" -s "[3]" -s "[4]"
 xfconf-query -c xfce4-panel -p /panels/panel-1/background-style -s 0
 xfconf-query -c xfce4-panel -p /panels/panel-1/size -s 25
+# xfconf-query -c xfce4-panel -p /plugins/plugin-6/sort-order -s 4
+# xfconf-query -c xfce4-panel -p /plugins/plugin-6/window-scrolling -s false
 xfconf-query -c xfce4-session -np /compat/LaunchGNOME -t 'bool' -s 'true'
 xfconf-query -c xfwm4 -p /general/use_compositing -s false
 xfconf-query -c xfwm4 -p /general/wrap_windows -s false
