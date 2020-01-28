@@ -1,0 +1,34 @@
+#whiskermenu-window * {
+  border: 0;
+  outline: none;
+}
+
+#whiskermenu-window {
+  background-color: #444;
+  color: #ccc;
+}
+
+#whiskermenu-window entry {
+  background-color: #555;
+  color: #eee;
+}
+
+#whiskermenu-window button {
+  background-color: #444;
+  color: #ccc;
+}
+
+#whiskermenu-window treeview {
+  background-color: #3e3e3e;
+  color: #ccc;
+}
+
+#whiskermenu-window button:focus,
+#whiskermenu-window button:hover,
+#whiskermenu-window treeview:selected,
+#whiskermenu-window treeview:hover
+{
+  background-color: #D64937;
+  color: #fff;
+}
+
