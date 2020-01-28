@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import json
 import os
@@ -36,7 +36,7 @@ def get_json(url):
 
 with open('bus.json') as data_file:
     buscado = json.load(data_file)
-    paradas = buscado.keys()
+    paradas = list(buscado.keys())
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         tipo = int(sys.argv[1])
         for p in paradas:
@@ -79,8 +79,8 @@ def tiempos(p, buscado):
     t = time.time()
     param = str(t).replace(".", "")
     c = 0
-    for i in range(0, len(p)):
-        param = param + "&" + cmp1 + "[" + str(i) + "]=" + p[i]
+    for i, k in enumerate(p):
+        param = param + "&" + cmp1 + "[" + str(i) + "]=" + k
 
     j = get_json(url1 + param)
 
@@ -97,12 +97,16 @@ def tiempos(p, buscado):
     for pI in paradasI:
         lines = get_json(url2 + pI)
         for i in lines:
-            if i["lineNumber"] in busI and " min" in i["waitTime"]:
+            if not(i["lineNumber"] in busI and " min" in i["waitTime"]):
+                continue
+            try:
                 i["linea"] = i["lineNumber"]
                 i["segundos"] = int(i["waitTime"].split()[0]) * 60
                 i["destino"] = i["lineBound"]
                 i["parada"] = pI
                 j.append(i)
+            except:
+                pass
 
     j = sorted(j, key=lambda x: int(x['segundos']))
     rst = []
@@ -123,19 +127,19 @@ def get(info, p, b):
 
 
 def pt(info):
-    print ""
+    print ("")
     flag = True
     for i in info:
         if i["segundos"] == 999999:
             if flag:
-                print ""
+                print ("")
                 flag = False
             m = "+20"
         else:
-            m = str(i["segundos"] / 60)
+            m = str(round(i["segundos"] / 60))
         msg = "%4s %3s -> " + i["destino"]
-        print msg % (m, i["linea"])
-    print ""
+        print (msg % (m, i["linea"]))
+    print ("")
 
 while True:
     j = tiempos(paradas, buscado)
