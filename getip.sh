@@ -16,7 +16,9 @@ if [ ! -z "$MY_DIG" ]; then
   else
     "$MY_DIG" +short myip.opendns.com @resolver1.opendns.com 2>/dev/null
   fi
-  exit $?
+  if [ $? -eq 0 ]; then
+    exit 0
+  fi
 fi
 
 getIp () {
