@@ -32,3 +32,19 @@
   color: #fff;
 }
 
+/* dark theme for xfce4-session-logout */
+.xfsm-logout-dialog {
+	color: #eeeeec;
+	background-color: #333333;
+	border-width: 0px;
+	box-shadow: none;
+}
+
+.xfsm-logout-dialog button {
+	color: #eeeeec;
+	background-color: #626262;
+}
+
+.xfsm-logout-dialog button:hover, .xfsm-logout-dialog button:focus {
+	background-color: #767676;
+}
