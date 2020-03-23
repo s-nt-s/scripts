@@ -27,7 +27,7 @@ esac
 done
 
 if [ -z "$VPN" ]; then
-    VPN=$(nmcli con | grep " vpn " | cut -d' ' -f1)
+    VPN=$(nmcli con | grep " vpn " | cut -d' ' -f1 | head -n 1)
     if [ -z "$VPN" ]; then
         echo "VPN no encontrada"
         echo "$ nmcli con:"
