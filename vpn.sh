@@ -26,14 +26,7 @@ case $key in
 esac
 done
 
-if [ ! -z "$VPN" ]; then
-    if ! nmcli con | grep " vpn " | cut -d' ' -f1 | grep -q "$VPN"; then
-        echo "VPN $VPN no encontrada"
-        echo "$ nmcli con:"
-        nmcli con
-        exit 1
-    fi
-else
+if [ -z "$VPN" ]; then
     VPN=$(nmcli con | grep " vpn " | cut -d' ' -f1)
     if [ -z "$VPN" ]; then
         echo "VPN no encontrada"
@@ -41,8 +34,15 @@ else
         nmcli con
         exit 1
     fi
+else
+    if ! nmcli con | grep " vpn " | cut -d' ' -f1 | grep -q "$VPN"; then
+        echo "VPN $VPN no encontrada"
+        echo "$ nmcli con:"
+        nmcli con
+        exit 1
+    fi
 fi
-ST=$(nmcli con | grep " vpn " | sed 's/  */ /g' | grep -E "^${VPN}" | cut -d' ' -f4)
+ST=$(nmcli con | grep " vpn " | sed 's/  */ /g' | grep -E "^${VPN} " | cut -d' ' -f4)
 if [ $P_ON -eq 1 ] && [ "$ST" != "--" ]; then
     exit 0
 fi
