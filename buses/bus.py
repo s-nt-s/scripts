@@ -97,12 +97,16 @@ def tiempos(p, buscado):
     for pI in paradasI:
         lines = get_json(url2 + pI)
         for i in lines:
-            if i["lineNumber"] in busI and " min" in i["waitTime"]:
+            if not(i["lineNumber"] in busI and " min" in i["waitTime"]):
+                continue
+            try:
                 i["linea"] = i["lineNumber"]
                 i["segundos"] = int(i["waitTime"].split()[0]) * 60
                 i["destino"] = i["lineBound"]
                 i["parada"] = pI
                 j.append(i)
+            except:
+                pass
 
     j = sorted(j, key=lambda x: int(x['segundos']))
     rst = []
