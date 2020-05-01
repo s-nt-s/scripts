@@ -1,9 +1,5 @@
 #!/bin/bash
 
-if [ -f "$1" ]; then
-  rm "$1"
-fi
-
 DIR=$(dirname "$1")
 mkdir -p "$DIR"
 
