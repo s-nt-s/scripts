@@ -43,7 +43,8 @@ if [ -d ~/tmp_pdftosplit_borrame/ ]; then
 fi
 mkdir ~/tmp_pdftosplit_borrame/
 mv x/*.pdf ~/tmp_pdftosplit_borrame/
-pdftk A=~/tmp_pdftosplit_borrame/a.pdf B=~/tmp_pdftosplit_borrame/b.pdf cat $CAT_PR output "$OUT"
+pdftk A=~/tmp_pdftosplit_borrame/a.pdf B=~/tmp_pdftosplit_borrame/b.pdf cat $CAT_PR output ~/tmp_pdftosplit_borrame/c.pdf
+gs -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -sOutputFile="$OUT" c.pdf
 rm -R ~/tmp_pdftosplit_borrame/
 
 if [ -f "$OUT" ]; then
