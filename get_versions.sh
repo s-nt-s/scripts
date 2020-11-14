@@ -1,51 +1,19 @@
 #!/bin/bash
 
 ######
+## Based on
 ## https://stackoverflow.com/questions/12850030/git-getting-all-previous-version-of-a-specific-file-folder
 #####
 
 # we'll write all git versions of the file to this folder:
-EXPORT_TO="$2"
-if [ "${EXPORT_TO}" == "" ]; then
-    EXPORT_TO="$(mktemp -d)"
-fi
-if [ ! -d "${EXPORT_TO}" ]; then
-    echo "error: ${EXPORT_TO} is not a directory"
-    exit 1
-fi
-
-# take relative path to the file to inspect
-GIT_PATH_TO_FILE=$1
-
-# ---------------- don't edit below this line --------------
-
+EXPORT_TO="$(mktemp -d)"
 USAGE="Please cd to the root of your git proj and specify path to file you with to inspect (example: $0 some/path/to/file)"
-
-# check if got argument
-if [ "${GIT_PATH_TO_FILE}" == "" ]; then
-    echo "error: no arguments given. ${USAGE}" >&2
-    exit 1
-fi
-
 echo "Export to $EXPORT_TO"
 
-# check if file exist
-if [ ! -f ${GIT_PATH_TO_FILE} ]; then
-    echo "error: File '${GIT_PATH_TO_FILE}' does not exist. ${USAGE}" >&2
-    exit 1
-fi
+for GIT_PATH_TO_FILE in "$@"; do
 
 # extract just a filename from given relative path (will be used in result file names)
 GIT_SHORT_FILENAME=$(basename $GIT_PATH_TO_FILE)
-
-# create folder to store all revisions of the file
-if [ ! -d ${EXPORT_TO} ]; then
-    echo "creating folder: ${EXPORT_TO}"
-    mkdir ${EXPORT_TO}
-fi
-
-## uncomment next line to clear export folder each time you run script
-#rm ${EXPORT_TO}/*
 
 # reset coutner
 COUNT=0
@@ -56,11 +24,35 @@ git rev-list --all --objects -- ${GIT_PATH_TO_FILE} | \
 while read h; do \
      COUNT=$((COUNT + 1)); \
      COUNT_PRETTY=$(printf "%04d" $COUNT); \
-     COMMIT_DATE=`git show $h | head -3 | grep 'Date:' | awk '{print $4"-"$3"-"$6}'`; \
+     PRT=$(git show $h | head -3 | grep 'Date:') \
+     COMMIT_DATE=`git show $h | head -3 | grep 'Date:' | awk '{print $4"-"$3"-"$6" "$5}'`; \
      if [ "${COMMIT_DATE}" != "" ]; then \
-         git cat-file -p ${h}:${GIT_PATH_TO_FILE} > ${EXPORT_TO}/${COUNT_PRETTY}.${COMMIT_DATE}.${h}.${GIT_SHORT_FILENAME};\
+         COMMIT_DATE=$(date -d "$COMMIT_DATE" +'%Y-%m-%d_%H-%M-%S')
+         OUT="${EXPORT_TO}/${COMMIT_DATE}.${COUNT_PRETTY}.${h}.${GIT_SHORT_FILENAME}"
+         git cat-file -p ${h}:${GIT_PATH_TO_FILE} > ${OUT} 2>/dev/null;\
+         if [ $? -ne 0 ]; then
+           rm "${OUT}"
+         fi
      fi;\
 done
+
+done
+cd "${EXPORT_TO}"
+function check_prefix() {
+  PRE="$1"
+  CHK=$(ls | cut -b "1-${PRE}" | uniq -c | grep "^\s*[2-9]" | wc -l)
+  if [ "$CHK" -eq 0 ]; then
+    RST=$((24-PRE))
+    rename "s/(.{${PRE}}).{${RST}}(.*)/\$1\$2/" *
+  fi
+}
+check_prefix 10
+if [ "$CHK" -ne 0 ]; then
+check_prefix 16
+fi
+if [ "$CHK" -ne 0 ]; then
+check_prefix 19
+fi
 
 # return success code
 echo "result stored to ${EXPORT_TO}"
