@@ -21,5 +21,5 @@ Terminal=false
 Hidden=false
 EOL
 elif [ -f /sys/class/backlight/acpi_video0/brightness ]; then
-	echo "0" > /sys/class/backlight/acpi_video0/brightness
+	echo "1" > /sys/class/backlight/acpi_video0/brightness
 fi
