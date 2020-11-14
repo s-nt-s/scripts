@@ -59,6 +59,10 @@ def dwn(opt):
                 video=f
             if abr and(audio is None or abr>audio["abr"]):
                 audio=f
+        if audio is None and video.get("acodec", "none")!="none":
+            audio=video
+        if audio is None:
+            audio={'format_id':'bestaudio'}
         opt['format']='{}+{}'.format(video['format_id'], audio['format_id'])
         dwn(opt)
         #print(json.dumps(result, indent=2))
