@@ -23,38 +23,27 @@ def save(sql_script, out):
     con.commit()
     c.close()
 
-def safe_save(sql_script, out):
-    try:
-        save(sql_script, out)
-    except sqlite3.IntegrityError as e:
-        logging.info("Reintento con ignore_check_constraints para evitar error "+str(e))
-        sql_script=dedent("""
-            -- ----------------------------------------------------------
-            -- 'NOT NULL' comentados y constraints deshabilitadas
-            -- para evitar error:
-            --   {}
-            -- ----------------------------------------------------------
-            PRAGMA ignore_check_constraints = on;
-            PRAGMA foreign_keys = off;
-            """).lstrip().format(str(e))+ "\n"+ \
-            re_not_null.sub(r"\1 -- NOT NULL\1", sql_script)
-        save(sql_script, out)
-
 def run_cmd(*args):
     output = subprocess.check_output(args)
     output = output.decode('utf-8')
     return output
 
+def get_schema(db):
+    schema = run_cmd("mdb-schema", db, "sqlite")
+    for line in schema.split("\n"):
+        line = line.strip()
+        if line.startswith("ALTER TABLE ") and "ADD CONSTRAINT" in line:
+            return run_cmd("mdb-schema", "--no-relations", db, "sqlite")
+    return schema
+
 
 def mdb_to_sqlite(DATABASE):
     # Dump the schema for the DB
-    SQL_SCRIPT = run_cmd("mdb-schema", DATABASE, "mysql")
+    SQL_SCRIPT = get_schema(DATABASE)
 
     # Get the list of table names with "mdb-tables"
-    table_names = subprocess.Popen(["mdb-tables", "-1", DATABASE],
-                                   stdout=subprocess.PIPE).communicate()
-    table_names = table_names[0]
-    tables = table_names.splitlines()
+    tables = run_cmd("mdb-tables", "-1", DATABASE)
+    tables = tables.split("\n")
 
     # start a transaction, speeds things up when importing
     SQL_SCRIPT = SQL_SCRIPT + '\nBEGIN;'
@@ -63,13 +52,13 @@ def mdb_to_sqlite(DATABASE):
     # converting " " in table names to "_" for the CSV filenames.
     for table in tables:
         if len(table) > 0:
-            output = run_cmd("mdb-export", "-I", "mysql", DATABASE, table)
+            output = run_cmd("mdb-export", "-I", "sqlite", DATABASE, table)
             SQL_SCRIPT = SQL_SCRIPT + '\n' + output
 
     SQL_SCRIPT = SQL_SCRIPT + "\nCOMMIT;"  # end the transaction
 
     NAME = DATABASE[:-3]
-    safe_save(SQL_SCRIPT, NAME)
+    save(SQL_SCRIPT, NAME)
 
 
 if __name__ == "__main__":
