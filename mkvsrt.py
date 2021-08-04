@@ -89,19 +89,18 @@ class Mkv:
 
         arr = ["mkvmerge", "-o", self.file+".srt.mkv", "--no-attachments", "-s", "!{}".format(",".join(str(s.id) for s in subs)), self.file]
         for i, s in enumerate(subs):
-            s.id = 0
             cmd = '''
-                --language {id}:{language_ietf}
-                --sub-charset {id}:{encoding}
+                --language 0:{language_ietf}
+                --sub-charset 0:{encoding}
             '''.format(**s)
             cmd = re_sp.sub(" ", cmd).strip()
             arr.extend(cmd.split())
             if s.get('default_track'):
-                arr.extend(["--default-track", "{id}:yes".format(**s)])
+                arr.extend(["--default-track", "0:yes".format(**s)])
             if s.get('forced_track'):
-                arr.extend(["--forced-track", "{id}:yes".format(**s)])
+                arr.extend(["--forced-track", "0:yes".format(**s)])
             if s.get('track_name'):
-                arr.extend(["--track-name", "{id}:{track_name}".format(**s)])
+                arr.extend(["--track-name", "0:{track_name}".format(**s)])
             arr.append(s.new_sub)
         run_cmd(*arr)
 
