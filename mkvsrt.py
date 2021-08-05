@@ -13,11 +13,13 @@ import pysubs2
 re_sp = re.compile(r"\s+")
 TMP = tempfile.mkdtemp()
 
+
 def get_cmd(*args):
     print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
     output = subprocess.check_output(args)
     output = output.decode('utf-8')
     return output
+
 
 def run_cmd(*args):
     print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
@@ -28,6 +30,7 @@ def run_cmd(*args):
 def backtwo(arr):
     arr = zip(range(1, len(arr)), arr[1:], arr)
     return reversed(list(arr))
+
 
 class Sub:
     def __init__(self, file):
@@ -40,11 +43,11 @@ class Sub:
             subs = pysubs2.SSAFile.from_string(subs.to_string(to_type))
             subs.sort()
         flag = len(subs)+1
-        while len(subs)<flag:
-            flag=len(subs)
+        while len(subs) < flag:
+            flag = len(subs)
             for i, s in reversed(list(enumerate(subs))):
                 for o in subs[:i]:
-                    if o.text == s.text and o.start<=s.start and o.end>=s.start:
+                    if o.text == s.text and o.start <= s.start and o.end >= s.start:
                         del subs[i]
                         break
             for i, s, prev in backtwo(subs):
@@ -63,6 +66,7 @@ class Sub:
         subs = self.load(to_type=to_type)
         subs.save(out)
         return out
+
 
 class Track(DefaultMunch):
     def __init__(self, *args, **kvargs):
@@ -110,7 +114,8 @@ class Track(DefaultMunch):
     def label_name(self):
         if self.label_video is None and self.file_extension is None:
             return None
-        flabel = None if self.file_extension is None else "({})".format(self.file_extension)
+        flabel = None if self.file_extension is None else "({})".format(
+            self.file_extension)
         if self.track_name is None:
             if self.label_video is not None:
                 return self.label_video
@@ -144,7 +149,8 @@ class Mkv:
             if isinstance(track, int):
                 track = self.get_track(track)
             if track.file_extension is None:
-                raise Exception("La pista {id} con tipo {type} y formato {codec} no tiene extension".format(**track))
+                raise Exception(
+                    "La pista {id} con tipo {type} y formato {codec} no tiene extension".format(**track))
             out = "{0}:{1}/{0}.{2}".format(track.id, TMP, track.file_extension)
             outs.append(out)
         run_cmd("mkvextract", "tracks", self.file, *outs)
@@ -162,14 +168,13 @@ class Mkv:
             arr.append(track)
         return arr
 
-
     def get_track(self, id):
         for t in self.tracks:
             if t.id == id:
                 return t
 
     def mkvpropedit(self, *args):
-        if len(args)==0:
+        if len(args) == 0:
             return
         run_cmd("mkvpropedit", self.file, *args)
         self._info = None
@@ -178,7 +183,8 @@ class Mkv:
         arr = []
         for s in self.tracks:
             if s.label_name:
-                arr.extend(["--edit", "track:"+str(s.number), "--set", "name="+s.label_name])
+                arr.extend(["--edit", "track:"+str(s.number),
+                            "--set", "name="+s.label_name])
         self.mkvpropedit(*arr)
 
     def fix_lang(self, und):
@@ -187,38 +193,42 @@ class Mkv:
         arr = []
         for s in self.tracks:
             if s.language == 'und':
-                arr.extend(["--edit", "track:"+str(s.number), "--set", "language="+und])
+                arr.extend(["--edit", "track:"+str(s.number),
+                            "--set", "language="+und])
         self.mkvpropedit(*arr)
 
     def convert(self):
         oupput = self.file
 
-        subs = [s for s in self.tracks if s.type == "subtitles" and s.codec!='SubRip/SRT']
-        if len(subs)>0:
+        subs = [s for s in self.tracks if s.type ==
+                "subtitles" and s.codec != 'SubRip/SRT']
+        if len(subs) > 0:
             fls = self.extract(*subs)
             for s, ori in zip(subs, fls):
                 s.new_sub = Sub(ori).save("srt")
 
             oupput = self.file+".srt.mkv"
-            arr = ["mkvmerge", "-o", oupput, self.file] #"--no-attachments", "-s", "!{}".format(",".join(str(s.id) for s in subs)), self.file]
+            # "--no-attachments", "-s", "!{}".format(",".join(str(s.id) for s in subs)), self.file]
+            arr = ["mkvmerge", "-o", oupput, self.file]
             for i, s in enumerate(subs):
-                cmd ='''
+                cmd = '''
                     --sub-charset 0:UTF-8
-                '''.format(**s) # --sub-charset 0:UTF-8{encoding}
+                '''.format(**s)  # --sub-charset 0:UTF-8{encoding}
                 if s.lang:
                     cmd = cmd+" --language 0:"+s.lang
                 cmd = re_sp.sub(" ", cmd).strip()
                 arr.extend(cmd.split())
-                #if s.get('default_track'):
+                # if s.get('default_track'):
                 #    arr.extend(["--default-track", "0:yes".format(**s)])
-                if s.get('forced_track'):
+                if s.forced_track:
                     arr.extend(["--forced-track", "0:yes".format(**s)])
-                if s.get('track_name'):
+                if s.track_name:
                     arr.extend(["--track-name", "0:{track_name}".format(**s)])
                 arr.append(s.new_sub)
             run_cmd(*arr)
 
         Mkv(oupput).mark_tracks()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Convierte los subtitulos de a srt")
