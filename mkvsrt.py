@@ -143,6 +143,10 @@ class Mkv:
             self._info = DefaultMunch.fromDict(js)
         return self._info
 
+    def mkvextract(self, *args):
+        if len(args) > 0:
+            run_cmd("mkvextract", "tracks", self.file, *args)
+
     def extract(self, *tracks):
         outs = []
         for track in tracks:
@@ -153,8 +157,27 @@ class Mkv:
                     "La pista {id} con tipo {type} y formato {codec} no tiene extension".format(**track))
             out = "{0}:{1}/{0}.{2}".format(track.id, TMP, track.file_extension)
             outs.append(out)
-        run_cmd("mkvextract", "tracks", self.file, *outs)
+        self.mkvextract(*outs)
         return [out.split(":", 1)[-1] for out in outs]
+
+    def safe_extract(self, id):
+        trg = {}
+        name = self.file.rsplit(".", 1)[0]
+        for track in self.tracks:
+            if track.file_extension is None:
+                continue
+            trg[track.id] = track
+            out = "{0}:{1}/{0}.{2}".format(track.id, TMP, track.file_extension)
+        track = trg.get(id)
+        if track is None:
+            print("No se puede extraer la pista", id)
+            print("Las pistas disponibles son:")
+            for _, track in sorted(trg.items(), key=lambda x: x[0]):
+                print(track.id, (track.label_name or track.track_name),
+                      "->", "{}.{}".format(name, track.file_extension))
+            return
+        out = "{0}:{1}.{2}".format(track.id, name, track.file_extension)
+        self.mkvextract(out)
 
     @property
     def tracks(self):
@@ -183,8 +206,8 @@ class Mkv:
         arr = []
         for s in self.tracks:
             if s.label_name:
-                arr.extend(["--edit", "track:"+str(s.number),
-                            "--set", "name="+s.label_name])
+                arr.extend("--edit track:{} --set".format(s.number).split())
+                arr.append("name="+s.label_name)
         self.mkvpropedit(*arr)
 
     def fix_lang(self, und):
@@ -193,8 +216,8 @@ class Mkv:
         arr = []
         for s in self.tracks:
             if s.language == 'und':
-                arr.extend(["--edit", "track:"+str(s.number),
-                            "--set", "language="+und])
+                arr.extend(
+                    "--edit track:{} --set language={}".format(s.number, und).split())
         self.mkvpropedit(*arr)
 
     def convert(self):
@@ -227,12 +250,15 @@ class Mkv:
                 arr.append(s.new_sub)
             run_cmd(*arr)
 
-        Mkv(oupput).mark_tracks()
+        out = Mkv(oupput)
+        out.mark_tracks()
+        return out
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Convierte los subtitulos de a srt")
     parser.add_argument('--und', help='Indioma para pistas und')
+    parser.add_argument('--track', type=int, help='Extraer una pista')
     parser.add_argument('file', help='Fichero mkv o subtitulos')
     args = parser.parse_args()
     if not isfile(args.file):
@@ -240,7 +266,9 @@ if __name__ == "__main__":
     if args.file.endswith(".mkv"):
         mkv = Mkv(args.file)
         mkv.fix_lang(args.und)
-        mkv.convert()
+        mkv = mkv.convert()
+        if args.track is not None:
+            mkv.safe_extract(args.track)
         sys.exit()
     out = Sub(args.file).save("srt")
     print("Resultado en", out)
