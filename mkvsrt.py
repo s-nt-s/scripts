@@ -325,8 +325,9 @@ class Mkv:
             nop=",".join(map(str, sorted(no_aud)))
             arr.extend("-a !{}".format(nop).split())
         if si_att:
-            sip=",".join(map(str, sorted(si_att)))
-            arr.extend("-m {}".format(sip).split())
+            if len(si_att)<len(self.info.attachments):
+                sip=",".join(map(str, sorted(si_att)))
+                arr.extend("-m {}".format(sip).split())
         else:
             arr.append("--no-attachments")
 
