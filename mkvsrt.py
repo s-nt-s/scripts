@@ -6,7 +6,7 @@ import tempfile
 import sys
 from munch import Munch, DefaultMunch
 from functools import lru_cache
-from os.path import isfile, basename
+from os.path import isfile, basename, isdir
 import re
 import pysubs2
 from shutil import copyfile, move as movefile
@@ -225,7 +225,6 @@ class Mkv:
             if track.file_extension is None:
                 continue
             trg[track.id] = track
-            out = "{0}:{1}/{0}.{2}".format(track.id, TMP, track.file_extension)
         track = trg.get(id)
         if track is None:
             print("No se puede extraer la pista", id)
@@ -399,14 +398,19 @@ class Mkv:
             self._ban = None
 
 
-    def fix_lang(self, und):
-        if und is None:
-            return
+    def fix_properties(self, und):
         arr = []
-        for s in self.tracks:
-            if s.language == 'und':
-                arr.extend(
-                    "--edit track:{} --set language={}".format(s.number, und).split())
+        if und is not None:
+            for s in self.tracks:
+                if s.language == 'und':
+                    arr.extend(
+                        "--edit track:{} --set language={}".format(s.number, und).split())
+        hasForced=any(s.forced_track for s in self.get_tracks('subtitles'))
+        if not hasForced:
+            for s in self.get_tracks('subtitles'):
+                if s.track_name and "forzados" in s.track_name.lower() and not s.forced_track:
+                    arr.extend(
+                        "--edit track:{} --set flag-forced=1".format(s.number).split())
         self.mkvpropedit(*arr)
 
     def convert(self):
@@ -428,7 +432,7 @@ class Mkv:
             nop=",".join(map(str, sorted(self.ban.subtitles)))
             arr.extend("-s !{}".format(nop).split())
         if self.ban.audio:
-            nop=",".join(map(str, sorted(self.ban.subtitles)))
+            nop=",".join(map(str, sorted(self.ban.audio)))
             arr.extend("-a !{}".format(nop).split())
         if len(self.ban.attachments)==0:
             pass
@@ -529,6 +533,29 @@ class Mkv:
         self.fix_tracks()
         return self.file
 
+    def sub_extract(self):
+        isEs = False
+        for a in self.get_tracks('audio'):
+            if a.lang in ("es", "spa"):
+                isEs = True
+        full = None
+        forc = None
+        for s in self.get_tracks('subtitles'):
+            if s.codec == "SubRip/SRT" and s.lang in ("es", "spa"):
+                if s.forced_track:
+                    forc = s
+                else:
+                    full = s
+        track = None
+        if isEs and forc:
+            track = forc
+        if track is None and full:
+            track  = full
+        if track is not None:
+            name = self.file.rsplit(".", 1)[0]
+            out = "{0}:{1}.{2}".format(track.id, name, track.file_extension)
+            self.mkvextract(out)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Convierte los subtitulos de a srt")
     parser.add_argument('--und', help='Indioma para pistas und')
@@ -540,11 +567,14 @@ if __name__ == "__main__":
     if not isfile(args.file):
         sys.exit("El fichero no existe")
     if args.file.endswith(".mkv"):
+        if isdir(args.out):
+            args.out = args.out.rstrip("/")+"/"+basename(args.file)
         if args.file == args.out:
             sys.exit("El fichero de entrada y salida no pueden ser el mismo")
         mkv = Mkv(args.file, args.out)
-        mkv.fix_lang(args.und)
+        mkv.fix_properties(args.und)
         mkv.convert()
+        mkv.sub_extract()
         if args.track is not None:
             mkv.safe_extract(args.track)
         sys.exit()
