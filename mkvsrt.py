@@ -128,6 +128,8 @@ class Track(DefaultMunch):
             return "ogg"
         if self.codec == "MP3":
             return "mp3"
+        if self.codec == "FLAC":
+            return "flac"
 
     @property
     def new_name(self):
@@ -147,6 +149,14 @@ class Track(DefaultMunch):
         arr.append("("+self.file_extension+")")
         return " ".join(arr)
 
+    def to_dict(self):
+        d = dict(self)
+        d['new_name'] = self.new_name
+        d['file_extension'] = self.file_extension
+        d['isLatino'] = self.isLatino
+        d['lang'] = self.lang
+        d['lang_name'] = self.lang_name
+        return d
 
 class Mkv:
 
@@ -174,7 +184,9 @@ class Mkv:
     @property
     def info(self):
         if self._info is None:
-            js = get_cmd("mkvmerge", "-F", "json", "--identify", self.file)
+            arr = "mkvmerge -F json --identify".split()
+            arr.append(self.file)
+            js = get_cmd(*arr)
             js = json.loads(js)
             self._info = DefaultMunch.fromDict(js)
         return self._info
@@ -418,15 +430,27 @@ class Mkv:
 
         for s in self.get_tracks('audio', 'subtitles'):
             if s.lang and (s.isLatino or s.lang not in self.main_lang):
+                latino = " - latino" if s.isLatino else ""
                 if s.type == 'subtitles':
                     self.ban.subtitles.add(s.id)
+                    print("# RM {file_extension} {id} {track_name} por idioma ({lang}{latino})".format(latino=latino, **s.to_dict()))
                 if s.type == 'audio':
                     self.ban.audio.add(s.id)
+                    print("# RM {file_extension} {id} {track_name} por idioma ({lang}{latino})".format(latino=latino, **s.to_dict()))
+
+        sbs = self.get_tracks('subtitles')
+        fls = self.extract(*sbs)
+        for f, s in zip(fls, sbs):
+            lines = Sub(f).load("srt")
+            if len(lines)<2:
+                print("# RM {file_extension} {id} {track_name} por tener una linea o menos".format(**s.to_dict()))
+                self.ban.subtitles.add(s.id)
 
         c_sub = len(self.get_tracks('subtitles'))
         for a in self.attachments:
             if c_sub==0 or a.get('content_type')!="application/x-truetype-font":
                 self.ban.attachments.add(a.id)
+                print("# RM {content_type} {id} por tipo o falta de subtitulos".format(**s))
 
         if self.ban.subtitles:
             nop=",".join(map(str, sorted(self.ban.subtitles)))
