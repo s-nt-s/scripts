@@ -15,8 +15,9 @@ re_sp = re.compile(r"\s+")
 TMP = tempfile.mkdtemp()
 
 
-def get_cmd(*args):
-    print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
+def get_cmd(*args, do_print=True):
+    if do_print:
+        print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
     output = subprocess.check_output(args)
     output = output.decode('utf-8')
     return output
@@ -46,6 +47,18 @@ def move(source, target):
     movefile(source, target)
     return True
 
+def farr(s, *args, **kvargs):
+    s = s.format(*args, **kvargs)
+    return s.split()
+
+class MyList(list):
+    def extend(self, s, *args, **kvargs):
+        if isinstance(s, str):
+            s = s.format(*args, **kvargs)
+            s = s.split()
+        elif args or kvargs:
+            s = [str(i).format(*args, **kvargs) for i in s]
+        super().extend(s)
 
 class Sub:
     def __init__(self, file):
@@ -120,7 +133,7 @@ class Track(DefaultMunch):
             return "ssa"
         if self.codec == "SubRip/SRT":
             return "srt"
-        if self.codec == "AC-3":
+        if self.codec in ("AC-3", "AC-3 Dolby Surround EX", "E-AC-3"):
             return "ac3"
         if self.codec in ("DTS", "DTS-ES"):
             return "dts"
@@ -156,6 +169,7 @@ class Track(DefaultMunch):
         d['isLatino'] = self.isLatino
         d['lang'] = self.lang
         d['lang_name'] = self.lang_name
+        d['track_name'] = self.track_name
         return d
 
 class Mkv:
@@ -170,7 +184,7 @@ class Mkv:
     @lru_cache(maxsize=None)
     def get_lang(lang=None):
         lgs = {}
-        langs = get_cmd("mkvmerge", "--list-languages")
+        langs = get_cmd("mkvmerge", "--list-languages", do_print=False)
         for l in langs.strip().split("\n")[2:]:
             label, cod1, cod2 = map(lambda x: x.strip(), l.split(" |"))
             for cod in (cod1, cod2):
@@ -184,7 +198,8 @@ class Mkv:
     @property
     def info(self):
         if self._info is None:
-            arr = "mkvmerge -F json --identify".split()
+            arr = MyList()
+            arr.extend("mkvmerge -F json --identify")
             arr.append(self.file)
             js = get_cmd(*arr)
             js = json.loads(js)
@@ -326,7 +341,7 @@ class Mkv:
             ot_otr=[],
         )
         for s in self.get_tracks('audio')+more_audio:
-            if s.codec == "AC-3":
+            if s.file_extension == "ac3":
                 if s.lang in ("es", "spa"):
                     aux.es_ac3.append(s)
                     continue
@@ -386,16 +401,16 @@ class Mkv:
         return ",".join(newordr)
 
     def fix_tracks(self):
-        arr = []
+        arr = MyList()
         title = basename(self.file)
         title = title.rsplit(".", 1)[0]
         title = title.strip()
         if self.info.container.properties.title != title:
-            arr.extend("--edit info --set".split())
+            arr.extend("--edit info --set")
             arr.append("title="+title)
         for s in self.tracks:
             if s.new_name and s.new_name!=s.track_name:
-                arr.extend("--edit track:{} --set".format(s.number).split())
+                arr.extend("--edit track:{} --set", s.number)
                 arr.append("name="+s.new_name)
 
         self.mkvpropedit(*arr)
@@ -411,22 +426,29 @@ class Mkv:
 
 
     def fix_properties(self, und):
-        arr = []
-        if und is not None:
-            for s in self.tracks:
-                if s.language == 'und':
-                    arr.extend(
-                        "--edit track:{} --set language={}".format(s.number, und).split())
+        arr = MyList()
+        isUnd = False
+        for s in self.tracks:
+            if s.language == 'und':
+                if und is None:
+                    print("# Pista {id} {track_name} ({file_extension}) necesita definir idioma".format(**s.to_dict()))
+                    isUnd = True
+                else:
+                    arr.extend("--edit track:{} --set language={}", s.number, und)
+        if isUnd:
+            raise Exception("Es necesario definir el parámentro und")
         hasForced=any(s.forced_track for s in self.get_tracks('subtitles'))
         if not hasForced:
             for s in self.get_tracks('subtitles'):
-                if s.track_name and "forzados" in s.track_name.lower() and not s.forced_track:
-                    arr.extend(
-                        "--edit track:{} --set flag-forced=1".format(s.number).split())
+                if s.track_name is None:
+                    continue
+                tn = s.track_name.lower()
+                if s.track_name and ("forzados" in tn or "forced" in tn) and not s.forced_track:
+                    arr.extend("--edit track:{} --set flag-forced=1", s.number)
         self.mkvpropedit(*arr)
 
-    def convert(self):
-        arr = []
+    def convert(self, do_srt=False, do_ac3=False):
+        arr = MyList()
 
         for s in self.get_tracks('audio', 'subtitles'):
             if s.lang and (s.isLatino or s.lang not in self.main_lang):
@@ -438,13 +460,16 @@ class Mkv:
                     self.ban.audio.add(s.id)
                     print("# RM {file_extension} {id} {track_name} por idioma ({lang}{latino})".format(latino=latino, **s.to_dict()))
 
-        sbs = self.get_tracks('subtitles')
-        fls = self.extract(*sbs)
-        for f, s in zip(fls, sbs):
-            lines = Sub(f).load("srt")
-            if len(lines)<2:
-                print("# RM {file_extension} {id} {track_name} por tener una linea o menos".format(**s.to_dict()))
-                self.ban.subtitles.add(s.id)
+        if do_srt:
+            sbs = self.get_tracks('subtitles')
+            fls = self.extract(*sbs)
+            for f, s in zip(fls, sbs):
+                lines = Sub(f).load("srt")
+                if len(lines)<2:
+                    print("# RM {file_extension} {id} {track_name} por tener una linea o menos".format(**s.to_dict()))
+                    if len(lines)==1:
+                        print("# "+re_sp.sub(" ", lines[0].text).strip())
+                    self.ban.subtitles.add(s.id)
 
         c_sub = len(self.get_tracks('subtitles'))
         for a in self.attachments:
@@ -454,17 +479,17 @@ class Mkv:
 
         if self.ban.subtitles:
             nop=",".join(map(str, sorted(self.ban.subtitles)))
-            arr.extend("-s !{}".format(nop).split())
+            arr.extend("-s !{}", nop)
         if self.ban.audio:
             nop=",".join(map(str, sorted(self.ban.audio)))
-            arr.extend("-a !{}".format(nop).split())
+            arr.extend("-a !{}", nop)
         if len(self.ban.attachments)==0:
             pass
         if len(self.attachments)==0:
             arr.append("--no-attachments")
         elif len(self.attachments)<len(self.info.attachments):
             sip=",".join(map(str, sorted(a.id for a in self.attachments)))
-            arr.extend("-m {}".format(sip).split())
+            arr.extend("-m {}", sip)
 
         arr.append(self.file)
 
@@ -478,7 +503,7 @@ class Mkv:
 
         si_ac3 = set()
         for s in self.get_tracks('audio'):
-            if s.codec in ("AC-3", ):
+            if s.file_extension == "ac3":
                 if s.language_ietf:
                     si_ac3.add(s.language_ietf)
                 if s.language:
@@ -491,7 +516,7 @@ class Mkv:
 
         more_audio = []
         more_subtitles = []
-        if len(cv_aud)>0:
+        if do_ac3 and len(cv_aud)>0:
             fls = self.extract(*cv_aud)
             for s, ori in zip(cv_aud, fls):
                 out = ori.rsplit(".", 1)[0]+".ac3"
@@ -502,15 +527,15 @@ class Mkv:
                 if s.lang:
                     cmd = cmd+" --language 0:"+s.lang
                 cmd = re_sp.sub(" ", cmd).strip()
-                arr.extend(cmd.split())
+                arr.extend(cmd)
                 # if s.get('default_track'):
                 #    arr.extend(["--default-track", "0:yes".format(**s)])
                 if s.default_track:
-                    arr.extend(["--default-track", "0:yes".format(**s)])
+                    arr.extend("--default-track 0:yes")
                 if s.forced_track:
-                    arr.extend(["--forced-track", "0:yes".format(**s)])
+                    arr.extend("--forced-track 0:yes")
                 if s.track_name:
-                    arr.extend(["--track-name", "0:{track_name}".format(**s)])
+                    arr.extend(["--track-name", "0:{track_name}"], **s)
 
                 arr.append(s.new_file)
                 more_audio.append(DefaultMunch(
@@ -520,7 +545,7 @@ class Mkv:
                     number=1000+i
                 ))
 
-        if len(si_srt)==0 and len(no_srt)>0:
+        if do_srt and len(si_srt)==0 and len(no_srt)>0:
             fls = self.extract(*no_srt)
             for s, ori in zip(no_srt, fls):
                 s.new_file = Sub(ori).save("srt")
@@ -533,13 +558,13 @@ class Mkv:
                 if s.lang:
                     cmd = cmd+" --language 0:"+s.lang
                 cmd = re_sp.sub(" ", cmd).strip()
-                arr.extend(cmd.split())
+                arr.extend(cmd)
                 # if s.get('default_track'):
                 #    arr.extend(["--default-track", "0:yes".format(**s)])
                 if s.forced_track:
-                    arr.extend(["--forced-track", "0:yes".format(**s)])
+                    arr.extend("--forced-track 0:yes")
                 if s.track_name:
-                    arr.extend(["--track-name", "0:{track_name}".format(**s)])
+                    arr.extend(["--track-name", "0:{track_name}"], **s)
                 arr.append(s.new_file)
                 more_subtitles.append(DefaultMunch(
                     lang=s.lang,
@@ -551,7 +576,7 @@ class Mkv:
         newordr = self.get_order(more_audio, more_subtitles)
 
         if newordr:
-            arr.extend(["--track-order", newordr])
+            arr.extend("--track-order " + newordr)
 
         self.mkvmerge(*arr)
         self.fix_tracks()
@@ -581,11 +606,14 @@ class Mkv:
             self.mkvextract(out)
 
 if __name__ == "__main__":
+    langs = sorted(k for k in Mkv.get_lang().keys() if len(k)==2)
     parser = argparse.ArgumentParser("Convierte los subtitulos de a srt")
-    parser.add_argument('--und', help='Indioma para pistas und')
+    parser.add_argument('--und', help='Indioma para pistas und (mkvmerge --list-languages)', choices=langs)
     #parser.add_argument('--must', nargs='*', help='Tipos de pista que ha de contener (por defecto ac3 y srt)', choices=('ac3', 'srt'))
     parser.add_argument('--track', type=int, help='Extraer una pista')
-    parser.add_argument('--out', type=str, help='Fichero salida para mkvmerge')
+    parser.add_argument('--out', type=str, help='Fichero salida para mkvmerge', default=".")
+    parser.add_argument('--do-srt', action='store_true', help='Genera subtitulos SRT si no los hay')
+    parser.add_argument('--do-ac3', action='store_true', help='Genera audio ac3 si no los hay')
     parser.add_argument('file', help='Fichero mkv o subtitulos')
     args = parser.parse_args()
     if not isfile(args.file):
@@ -597,7 +625,7 @@ if __name__ == "__main__":
             sys.exit("El fichero de entrada y salida no pueden ser el mismo")
         mkv = Mkv(args.file, args.out)
         mkv.fix_properties(args.und)
-        mkv.convert()
+        mkv.convert(do_srt=args.do_srt, do_ac3=args.do_ac3)
         mkv.sub_extract()
         if args.track is not None:
             mkv.safe_extract(args.track)
