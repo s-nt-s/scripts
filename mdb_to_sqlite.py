@@ -52,7 +52,7 @@ def mdb_to_sqlite(DATABASE):
     # converting " " in table names to "_" for the CSV filenames.
     for table in tables:
         if len(table) > 0:
-            output = run_cmd("mdb-export", "-I", "sqlite", DATABASE, table)
+            output = run_cmd("mdb-export", "-I", "sqlite", "-D", "%Y-%m-%d %H:%M", DATABASE, table)
             SQL_SCRIPT = SQL_SCRIPT + '\n' + output
 
     SQL_SCRIPT = SQL_SCRIPT + "\nCOMMIT;"  # end the transaction
