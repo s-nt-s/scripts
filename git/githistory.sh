@@ -1,14 +1,20 @@
 #!/bin/bash
-
 ######
 ## Based on
 ## https://stackoverflow.com/questions/12850030/git-getting-all-previous-version-of-a-specific-file-folder
 #####
 
-# we'll write all git versions of the file to this folder:
+git rev-parse --is-inside-work-tree 2>&1 > /dev/null
+if [ $? -ne 0 ]; then
+  echo "Ha de estar en un repositorio git"
+  exit $?
+fi
+if [ ! -d .git ]; then
+  echo "Ha de estar en un la carpeta raiz de un repositorio git"
+  exit 1
+fi
 EXPORT_TO="$(mktemp -d)"
-USAGE="Please cd to the root of your git proj and specify path to file you with to inspect (example: $0 some/path/to/file)"
-echo "Export to $EXPORT_TO"
+echo "Salida: $EXPORT_TO"
 
 for GIT_PATH_TO_FILE in "$@"; do
 
@@ -54,6 +60,5 @@ if [ "$CHK" -ne 0 ]; then
 check_prefix 19
 fi
 
-# return success code
-echo "result stored to ${EXPORT_TO}"
+echo "Salida: ${EXPORT_TO}"
 exit 0
