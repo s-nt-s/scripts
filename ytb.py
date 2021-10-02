@@ -5,7 +5,9 @@ import argparse
 import json
 
 parser = argparse.ArgumentParser(description='youtube-dl wrapper')
-parser.add_argument('--name', help="Nombre del fichero (sin extensión)", default='%(title)s.')
+parser.add_argument('--name', help="Nombre del fichero (sin extensión)", default='%(title)s')
+parser.add_argument('--hd', action="store_true", help="Bajar máxima resolución disponible")
+#parser.add_argument('--sub', action="store_true", help="Bajar subtítulos")
 parser.add_argument('url', help="Url")
 
 arg = parser.parse_args()
@@ -55,9 +57,9 @@ def dwn(opt):
                 continue
             height = f.get("height")
             abr = f.get("abr")
-            if height and height<1081 and(video is None or height>video["height"]):
+            if height and (height<721 or arg.hd) and(video is None or height>=video["height"]):
                 video=f
-            if abr and(audio is None or abr>audio["abr"]):
+            if abr and(audio is None or abr>=audio["abr"]):
                 audio=f
         opt['format']='{}+{}'.format(video['format_id'], audio['format_id'])
         dwn(opt)
