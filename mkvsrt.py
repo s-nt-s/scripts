@@ -698,7 +698,7 @@ class MkvMerge:
         subtitles=self.get_tracks('subtitles', src)
         audio=self.get_tracks('audio', src)
         
-        if len(subtitles)==1 and subtitles[0].lang in ("und", None):
+        if len(subtitles)==1 and subtitles[0].lang in ("und", "", None):
             subtitles[0].language="es"
             track.isNewLang = True
 
