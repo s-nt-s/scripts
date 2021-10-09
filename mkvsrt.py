@@ -768,6 +768,14 @@ class MkvMerge:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2:
+        fln = sys.argv[1]
+        ext = fln.rsplit(".", 1)[-1].lower()
+        if isfile(fln) and ext in ("srt", "ssa"):
+            out = Sub(fln).save("srt")
+            print("OUT:", out)
+            sys.exit()
+    
     langs = sorted(k for k in Mkv.get_lang().keys() if len(k)==2)
     parser = argparse.ArgumentParser("Convierte los subtitulos de a srt")
     parser.add_argument('--und', help='Indioma para pistas und (mkvmerge --list-languages)', choices=langs)
@@ -779,6 +787,7 @@ if __name__ == "__main__":
     parser.add_argument('--only', nargs="*", help='Permitir solo ciertos tipos de audio y subtitulos (ac3, srt, etc)')
     parser.add_argument('files', nargs="+", help='Ficheros a mezclar')
     args = parser.parse_args()
+    
     if args.out in args.files:
         sys.exit("El fichero de entrada y salida no pueden ser el mismo")
     for file in args.files:
@@ -787,22 +796,3 @@ if __name__ == "__main__":
 
     mrg = MkvMerge(und=args.und, do_srt=args.do_srt, do_ac3=args.do_ac3, only=args.only)
     mrg.merge(args.out, *args.files)
-
-if False:
-    parser.add_argument('file', help='Fichero mkv o subtitulos')
-    args = parser.parse_args()
-    if not isfile(args.file):
-        sys.exit("El fichero no existe")
-    if args.file.endswith(".mkv"):
-        if isdir(args.out):
-            args.out = args.out.rstrip("/")+"/"+basename(args.file)
-        if args.file == args.out:
-            sys.exit("El fichero de entrada y salida no pueden ser el mismo")
-        mkv = Mkv(args.file, args.out, und=args.und, only=args.only)
-        mkv.convert(do_srt=args.do_srt, do_ac3=args.do_ac3)
-        mkv.sub_extract()
-        if args.track is not None:
-            mkv.safe_extract(args.track)
-        sys.exit()
-    out = Sub(args.file).save(args.out or "srt")
-    print("Resultado en", out)
