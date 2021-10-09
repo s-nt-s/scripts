@@ -6,7 +6,7 @@ import tempfile
 import sys
 from munch import Munch, DefaultMunch
 from functools import lru_cache
-from os.path import isfile, basename, isdir
+from os.path import isfile, basename, isdir, dirname, realpath
 import re
 import pysubs2
 from shutil import copyfile, move as movefile
@@ -17,16 +17,46 @@ re_nosub = re.compile(r"www\.newpct\.com")
 
 LANG_ES = ("es", "spa", "es-ES")
 
+def get_title(file):
+    year = None
+    capi = None
+    title = basename(file)
+    title = title.rsplit(".", 1)[0]
+    title = title.strip()
+    if re.match(r"^\d+(x\d+)?$", title):
+        capi = title
+        title = basename(dirname(realpath(file)))
+    mtc = re.match(r"(19\d\d|20\d\d)[\s\-]+(.+)", title)
+    if mtc:
+        year = mtc.group(1)
+        title = mtc.group(2).strip()
+    if capi:
+        title = title + " " + capi
+    if year:
+        title = title + " ({})".format(year)
+    return title
+
+def print_cmd(*args):
+    arr=[]
+    for a in args:
+        if " " in a or "!" in a:
+            a = "'"+a+"'"
+        if args[0]== "mkvpropedit" and a == "--edit":
+            a = "\\\n  --edit"
+        arr.append(a)
+    print("$", *arr)
+
 def get_cmd(*args, do_print=True):
     if do_print:
-        print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
+        print_cmd(*args)
     output = subprocess.check_output(args)
     output = output.decode('utf-8')
     return output
 
 
-def run_cmd(*args):
-    print("$", *[a if not(" " in a or "!" in a) else "'"+a+"'" for a in args])
+def run_cmd(*args, do_print=True):
+    if do_print:
+        print_cmd(*args)
     out = subprocess.call(args)
     return out
 
@@ -130,7 +160,11 @@ class Track(DefaultMunch):
     def isLatino(self):
         if self.track_name is None or self.lang not in LANG_ES:
             return False
-        return "latino" in self.track_name.lower()
+        if "latino" in self.track_name.lower():
+            return True
+        if self.track_name == "LRL":
+            return True
+        return False
 
     @property
     def file_extension(self):
@@ -148,6 +182,9 @@ class Track(DefaultMunch):
             return "mp3"
         if self.codec == "FLAC":
             return "flac"
+        if self.codec in ("AAC", ):
+            return "aac"
+        raise Exception("Extensión no encontrada para: {codec}".format(**dict(self)))
 
     @property
     def new_name(self):
@@ -410,17 +447,16 @@ class Mkv:
 
     def fix_tracks(self):
         arr = MyList()
-        title = basename(self.file)
-        title = title.rsplit(".", 1)[0]
-        title = title.strip()
-        if self.info.container.properties.title != title:
-            arr.extend("--edit info --set")
-            arr.append("title="+title)
+        arr.extend("--edit info --set")
+        arr.append("title="+get_title(self.file))
             
         for s in self.tracks:
-            if s.new_name and s.new_name!=s.track_name:
-                arr.extend("--edit track:{} --set", s.number)
-                arr.append("name="+s.new_name)
+            arr.extend("--edit track:{}", s.number)
+            if s.new_name:
+                arr.extend(["--set", "name="+s.new_name])
+            arr.extend("--set language={}", s.lang)
+            if s.type == "subtitles":
+                arr.extend(["--set", "flag-forced="+str(int(s.forced_track))])
 
         self.mkvpropedit(*arr)
 
@@ -500,9 +536,9 @@ class Mkv:
 
         c_sub = len(self.get_tracks('subtitles'))
         for a in self.attachments:
-            if c_sub==0 or a.get('content_type')!="application/x-truetype-font":
+            if c_sub==0 or a.get('content_type') not in ("application/x-truetype-font", "application/vnd.ms-opentype"):
                 self.ban.attachments.add(a.id)
-                print("# RM {content_type} {id} por tipo o falta de subtitulos".format(**s))
+                print("# RM {content_type} {id} por tipo o falta de subtitulos".format(**a))
 
         if self.ban.subtitles:
             nop=",".join(map(str, sorted(self.ban.subtitles)))
@@ -630,7 +666,8 @@ class Mkv:
         if track is not None:
             name = self.file.rsplit(".", 1)[0]
             out = "{0}:{1}.{2}".format(track.id, name, track.file_extension)
-            self.mkvextract(out)
+            print("# Para extraer los subtítulos principales haz:")
+            print_cmd("mkvextract", "tracks", self.file, out)
 
 if __name__ == "__main__":
     langs = sorted(k for k in Mkv.get_lang().keys() if len(k)==2)
