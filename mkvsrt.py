@@ -38,11 +38,18 @@ def get_title(file):
 
 def print_cmd(*args):
     arr=[]
-    for a in args:
+    for index, a in enumerate(args):
         if " " in a or "!" in a:
             a = "'"+a+"'"
         if args[0]== "mkvpropedit" and a == "--edit":
             a = "\\\n  --edit"
+        if args[0]=="mkvmerge" and index>1:
+            if a == "--track-order":
+                a = "\\\n  "+a
+            elif args[index-2]=="-o":
+                a = "\\\n  "+a
+            elif isfile(args[index-1]):
+                a = "\\\n  "+a
         arr.append(a)
     print("$", *arr)
 
