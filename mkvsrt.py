@@ -137,7 +137,11 @@ class Track(DefaultMunch):
 
     @property
     def lang(self):
-        return self.language_ietf or self.language
+        lg = [self.language_ietf, self.language]
+        lg = [l for l in lg if l not in (None, "", "und")]
+        if len(lg)==0:
+            return "und"
+        return lg[0]
 
     @property
     def lang_name(self):
@@ -219,11 +223,12 @@ class Track(DefaultMunch):
 
 class Mkv:
 
-    def __init__(self, file, output=None):
+    def __init__(self, file, output=None, und=None):
         self.file = file
         self.output = output
         self._info = None
         self._ban=None
+        self.und=und
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -249,6 +254,65 @@ class Mkv:
             js = get_cmd(*arr)
             js = json.loads(js)
             self._info = DefaultMunch.fromDict(js)
+            arr = []
+            for t in self._info.tracks:
+                track = Track()
+                track.update(t.properties.copy())
+                track.id = t.id
+                track.codec = t.codec
+                track.type = t.type
+                if track.language == 'und':
+                    if track.track_name is None:
+                        continue
+                    st_name = set(track.track_name.lower().split())
+                    if st_name.intersection({"español", "castellano"}):
+                        print("# track {id} {track_name}: und -> es".format(**dict(track)))
+                        track.language = "es"
+                    if st_name.intersection({"ingles", "english"}):
+                        print("# track {id} {track_name}: und -> en".format(**dict(track)))
+                        track.language = "en"
+                if track.language == 'und':
+                    if self.und:
+                        track.language = self.und
+                arr.append(track)
+            isUnd = [t for t in arr if t.language == 'und']
+            if len(isUnd):
+                print("Es necesario pasar el parámetro --und")
+                for s in isUnd:
+                    print("# track {id} {track_name} {codec}".format(**dict(s)))
+                sys.exit()
+
+            sub_langs={}
+            for s in arr:
+                if s.type !='subtitles':
+                    continue
+                if s.lang not in sub_langs:
+                    sub_langs[s.lang]=[]
+                sub_langs[s.lang].append(s)
+
+            for subs in sub_langs.values():
+                if any(s.forced_track for s in subs):
+                    continue
+                forced_done = False
+                for s in subs:
+                    if s.track_name is None:
+                        continue
+                    tn = s.track_name.lower()
+                    if s.track_name and ("forzados" in tn or "forced" in tn) and not s.forced_track:
+                        print("# track {id} {track_name}: forced_track=1".format(**dict(track)))
+                        s.forced_track = 1
+                        forced_done = True
+                if forced_done is False and len(subs)>1:
+                    fls = self.extract(*subs)
+                    for i, (f, s) in enumerate(zip(fls, subs)):
+                        lines = len(Sub(f).load("srt"))
+                        subs[i]=(lines, s)
+                    subs=sorted(x for x in subs if x[0]>0)
+                    if len(subs)>1 and subs[0][0]<(subs[-1][0]/2):
+                        track = subs[0][1]
+                        print("# track {id} {track_name}: forced_track=1".format(**dict(track)))
+                        track.forced_track = 1
+            self._info._tracks = arr
         return self._info
 
     @property
@@ -312,15 +376,10 @@ class Mkv:
     def tracks(self):
         arr = []
         ban = set().union(self.ban.audio, self.ban.subtitles, self.ban.video)
-        for t in self.info.tracks:
+        for t in self.info._tracks:
             if t.id in ban:
                 continue
-            track = Track()
-            track.update(t.properties.copy())
-            track.id = t.id
-            track.codec = t.codec
-            track.type = t.type
-            arr.append(track)
+            arr.append(t)
         return arr
 
     @property
@@ -446,71 +505,52 @@ class Mkv:
         return ",".join(newordr)
 
     def fix_tracks(self):
-        arr = MyList()
-        arr.extend("--edit info --set")
-        arr.append("title="+get_title(self.file))
-            
-        for s in self.tracks:
-            arr.extend("--edit track:{}", s.number)
-            if s.new_name:
-                arr.extend(["--set", "name="+s.new_name])
-            arr.extend("--set language={}", s.lang)
-            if s.type == "subtitles":
-                arr.extend(["--set", "flag-forced="+str(int(s.forced_track))])
-
-        self.mkvpropedit(*arr)
-
         newordr = self.get_order()
-
         if newordr:
             m = Mkv(self.file)
             m.mkvmerge("--track-order", newordr)
             movefile(m.file, self.file)
             self._info = None
             self._ban = None
-
-
-    def fix_properties(self, und):
-        arr = MyList()
-        isUnd = False
-        for s in self.tracks:
-            if s.language == 'und':
-                if und is None:
-                    print("# Pista {id} {track_name} ({file_extension}) necesita definir idioma".format(**s.to_dict()))
-                    isUnd = True
-                else:
-                    arr.extend("--edit track:{} --set language={}", s.number, und)
-        if isUnd:
-            raise Exception("Es necesario definir el parámentro und")
             
-        sub_langs={}
+        arr = MyList()
+        arr.extend("--edit info --set")
+        arr.append("title="+get_title(self.file))
+
+        defSub = None
+        isAudEs = any(s for s in self.get_tracks('audio') if s.lang in LANG_ES)
+        subEs = DefaultMunch()
         for s in self.get_tracks('subtitles'):
-            if s.lang not in self.main_lang:
-                continue
-            if s.lang not in sub_langs:
-                sub_langs[s.lang]=[]
-            sub_langs[s.lang].append(s)
-        for subs in sub_langs.values():
-            if any(s.forced_track for s in subs):
-                continue
-            forced_done = False
-            for s in subs:
-                if s.track_name is None:
-                    continue
-                tn = s.track_name.lower()
-                if s.track_name and ("forzados" in tn or "forced" in tn) and not s.forced_track:
-                    arr.extend("--edit track:{} --set flag-forced=1", s.number)
-                    forced_done = True
-            if forced_done is False and len(subs)>0:
-                fls = self.extract(*subs)
-                for i, (f, s) in enumerate(zip(fls, subs)):
-                    lines = len(Sub(f).load("srt"))
-                    subs[i]=(lines, s)
-                subs=sorted(x for x in subs if x[0]>0)
-                if len(subs)>1 and subs[0][0]<(subs[-1][0]/2):
-                    arr.extend("--edit track:{} --set flag-forced=1", subs[0][1].number)
+            if s.lang in LANG_ES:
+                if s.forced_track and subEs.forc is None:
+                    subEs.forc = s.number
+                if not s.forced_track and subEs.full is None:
+                    subEs.full = s.number
+        if isAudEs:
+            defSub = -1
+            if subEs.forc is not None:
+                defSub = subEs.forc
+        elif subEs.full is not None:
+            defSub = subEs.full
+
+        doDefault = DefaultMunch()
+        for s in self.tracks:
+            arr.extend("--edit track:{}", s.number)
+            if s.new_name:
+                arr.extend(["--set", "name="+s.new_name])
+            arr.extend("--set language={}", s.lang)
+            if s.type in ("video", "audio"):
+                if doDefault[s.type] is None:
+                    doDefault[s.type] = s.number
+                arr.extend("--set flag-default={}",str(int(s.number==doDefault[s.type])))
+            if s.type == "subtitles":
+                arr.extend("--set flag-forced={}",str(int(s.forced_track)))
+                if defSub is not None:
+                    arr.extend("--set flag-default={}",str(int(s.number==defSub)))
 
         self.mkvpropedit(*arr)
+
+
 
     def convert(self, do_srt=False, do_ac3=False):
         arr = MyList()
@@ -687,8 +727,7 @@ if __name__ == "__main__":
             args.out = args.out.rstrip("/")+"/"+basename(args.file)
         if args.file == args.out:
             sys.exit("El fichero de entrada y salida no pueden ser el mismo")
-        mkv = Mkv(args.file, args.out)
-        mkv.fix_properties(args.und)
+        mkv = Mkv(args.file, args.out, und=args.und)
         mkv.convert(do_srt=args.do_srt, do_ac3=args.do_ac3)
         mkv.sub_extract()
         if args.track is not None:
