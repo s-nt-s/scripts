@@ -571,6 +571,23 @@ class MkvMerge:
         return arr
 
     def get_order(self, src: list) -> str:
+        """
+        1. pista de video
+        2. pistas de audio:
+            1. es ac3
+            2. vo ac3
+            3. ** ac3
+            4. es ***
+            5. vo ***
+            6. ** ***
+        3. pistas de subtítulo:
+            1. es completos
+            2. es forzados
+            3. vo completos
+            4. vo forzados
+            5. ** completos
+            6. ** forzados
+        """
         main_lang = set(LANG_ES)
         for s in self.get_tracks('video', src):
             if s.language_ietf:
