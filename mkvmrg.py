@@ -9,6 +9,8 @@ from functools import lru_cache
 from os.path import isfile, basename, dirname, realpath
 import re
 import pysubs2
+import codecs
+from chardet import detect
 
 re_sp = re.compile(r"\s+")
 TMP = tempfile.mkdtemp()
@@ -16,6 +18,25 @@ re_nosub = re.compile(r"www\.newpct\.com")
 
 LANG_ES = ("es", "spa", "es-ES")
 
+def get_encoding_type(file):
+    with open(file, 'rb') as f:
+        rawdata = f.read()
+    return detect(rawdata)['encoding']
+
+def to_utf8(file: str) -> str:
+    enc = get_encoding_type(file)
+    if enc in ("utf-8", "ascii"):
+        return file
+    
+    n_file = TMP + "/" + basename(file)
+    while n_file == file:
+        n_file = n_file + "." + n_file.split(".")[-1]
+    with open(file, 'r', encoding=enc) as s:
+        with open(n_file, 'w', encoding='utf-8') as t:
+            text = s.read()
+            t.write(text)
+            
+    return n_file
 
 def get_title(file: str) -> str:
     year = None
@@ -171,7 +192,10 @@ class Track(DefaultMunch):
         lg = [l for l in lg if l not in (None, "", "und")]
         if len(lg) == 0:
             return "und"
-        return lg[0]
+        lg = lg[0]
+        if len(lg)==2 and MKVLANG.code.get(lg):
+            lg = MKVLANG.code.get(lg)
+        return lg
 
     @property
     def isUnd(self) -> bool:
@@ -212,6 +236,8 @@ class Track(DefaultMunch):
             return "ssa"
         if self.codec == "SubRip/SRT":
             return "srt"
+        if self.type == "subtitles" and "PGS" in self.codec:
+            return "pgs"
         if self.codec in ("AC-3", "AC-3 Dolby Surround EX", "E-AC-3"):
             return "ac3"
         if self.codec in ("DTS", "DTS-ES"):
@@ -234,6 +260,8 @@ class Track(DefaultMunch):
                 lb = "H.264"
             if "H.265" in self.codec:
                 lb = "H.265"
+            if "HDMV" in self.codec:
+                lb = "HDMV"
             if lb is None:
                 return None
             if self.pixel_dimensions:
@@ -245,6 +273,8 @@ class Track(DefaultMunch):
         if self.forced_track and self.type == "subtitles":
             arr.append("forzados")
         arr.append("(" + self.file_extension + ")")
+        if self.type == "subtitles" and self.lines:
+            arr.append("({} líneas)".format(self.lines))
         return " ".join(arr)
 
     def set_lang(self, lang):
@@ -267,7 +297,21 @@ class Track(DefaultMunch):
         d['track_name'] = self.track_name
         return d
 
+class Duration:
+    def __init__(self, nano):
+        self.nano = nano
 
+    @property
+    def seconds(self):
+        return self.nano / 1000000000
+
+    @property
+    def minutes(self):
+        return round(self.seconds / 60)
+
+    def __eq__(self, other):
+        return self.nano == other.nano
+        
 class Mkv:
     def __init__(self, file: str, vo: str = None, und: str = None, only: list = None, source: int = 0):
         self.file = file
@@ -286,6 +330,10 @@ class Mkv:
             return
         run_cmd("mkvpropedit", self.file, *args)
         self._core = DefaultMunch()
+
+    @property
+    def duration(self):
+        return Duration(self._core.info.container.properties.duration)
 
     @property
     def info(self) -> Munch:
@@ -333,6 +381,7 @@ class Mkv:
             if len(isUnd):
                 print("Es necesario pasar el parámetro --und")
                 for s in isUnd:
+                    s.track_name = s.get('track_name')
                     print("# track {id} {track_name} {codec}".format(**dict(s)))
                 sys.exit()
 
@@ -340,7 +389,10 @@ class Mkv:
             if subtitles:
                 fls = self.extract(*subtitles, silent=True)
                 for f, s in zip(fls, subtitles):
-                    lines = len(Sub(f).load("srt"))
+                    if not s.text_subtitles:
+                        s.lines = None
+                        continue
+                    lines = len(Sub(to_utf8(f)).load("srt"))
                     s.lines = lines
 
                 sub_langs = {}
@@ -491,7 +543,10 @@ class Mkv:
         for s in self.tracks:
             arr.extend("--edit track:{}", s.number)
             if s.new_name:
-                arr.extend(["--set", "name=" + s.new_name])
+                new_name=str(s.new_name)
+                if s.type == "video" and self.duration.minutes>59:
+                    new_name = new_name + " ({}m)".format(self.duration.minutes)
+                arr.extend(["--set", "name=" + new_name])
             arr.extend("--set language={}", s.lang)
             if s.type in ("video", "audio"):
                 if doDefault[s.type] is None:
@@ -684,6 +739,12 @@ class MkvMerge:
     def build_track(self, file: str, source: int) -> Track:
         nf = mkvinfo(file)
         t = nf.tracks[0]
+        
+        if t.get('type') == "subtitles":
+            f = to_utf8(file)
+            if f not in (None, file):
+                return self.build_track(f, source)
+            
         track = Track()
         track.update(t.properties.copy())
         track.id = t.id
@@ -692,15 +753,16 @@ class MkvMerge:
         track.source_file = file
         track.source = source
         if track.isUnd:
-            st_name = set(re.split(r"[\s\.]+", basename(file).lower()))
-            if st_name.intersection({"español", "castellano", "es"}):
+            lw_name = basename(file).lower()
+            st_name = set(re.split(r"[\s\.]+", lw_name))
+            if re.search(r"\b(español|castellano|spanish)\b", lw_name) or st_name.intersection({"es", }):
                 track.set_lang("spa")
-            if st_name.intersection({"ingles", "english", "en"}):
+            if re.search(r"\b(ingles|english)\b", lw_name) or st_name.intersection({"en", }):
                 track.set_lang("eng")
-            if st_name.intersection({"japones", "japanese", "ja"}):
+            if re.search(r"\b(japones|japanese)\b", lw_name) or st_name.intersection({"ja", }):
                 track.set_lang("jpn")
             if track.isUnd:
-                track.set_lang("und")
+                track.set_lang(self.und or "und")
         if len(nf.get("chapters", [])) == 1 and nf.chapters[0].num_entries == 1:
             track.rm_chapters = True
         return track
@@ -742,13 +804,23 @@ class MkvMerge:
         if len(subtitles) == 1 and subtitles[0].isUnd:
             subtitles[0].set_lang("spa")
 
+        no_text = [s for s in subtitles if not s.text_subtitles]
+        si_text = set((s.lang, s.forced_track) for s in subtitles if s.text_subtitles)
+        for s in no_text:
+            if (s.lang, s.forced_track) in si_text:
+                mkv = src[s.source]
+                if isinstance(mkv, Mkv):
+                    print("# RM source={source} track={id} {new_name} por existir alternativa en texto".format(**s.to_dict()))
+                    mkv.ban[s.type].add(s.id)
+
+        subtitles = self.get_tracks('subtitles', src)
         done = set()
         for s in subtitles + audio:
             k = (s.lang, s.file_extension, s.forced_track, s.type)
             if k in done:
                 mkv = src[s.source]
                 if isinstance(mkv, Mkv):
-                    print("# DP source={source} track={id} {new_name}".format(**s.to_dict()))
+                    print("# DP source={source} track={id} {new_name} por duplicado".format(**s.to_dict()))
                     mkv.ban[s.type].add(s.id)
             done.add(k)
 
@@ -849,7 +921,7 @@ if __name__ == "__main__":
         fln = sys.argv[1]
         ext = fln.rsplit(".", 1)[-1].lower()
         if isfile(fln) and ext in ("srt", "ssa"):
-            out = Sub(fln).save("srt")
+            out = Sub(to_utf8(fln)).save("srt")
             print("OUT:", out)
             sys.exit()
 
