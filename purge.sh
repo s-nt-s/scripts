@@ -5,6 +5,9 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+df -h /
+echo ""
+
 echo "Limpiando paquetes huerfanos"
 deborphan | xargs apt-get -y remove --purge
 
@@ -15,8 +18,8 @@ if [ ! -z "$PK" ]; then
 fi
 
 echo "Limpiando paquetes almacenados en la cache ..."
-aptitude autoclean
-aptitude clean
+aptitude -y autoclean
+aptitude -y clean
 apt clean
 apt autoclean
 apt autoremove
@@ -31,3 +34,16 @@ fi
 
 echo "Eliminando logs antiguos ..."
 journalctl --vacuum-time=3d
+
+find ~/wks -name geckodriver.log -delete
+
+echo "Eliminando span disabled ..."
+LANG=en_EN snap list --all | awk '/disabled/{print $1, $3}' |  while read snapname revision; do
+  snap remove "$snapname" --revision="$revision"
+done
+
+echo "Eliminando flatpak unused ..."
+flatpak uninstall --unused
+
+echo ""
+df -h /
