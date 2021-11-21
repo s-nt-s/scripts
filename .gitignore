@@ -6,3 +6,4 @@ freedns.afraid.key
 __pycache__
 domains*.json
 dgt.txt
+.idea

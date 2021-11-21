@@ -11,8 +11,8 @@ if [ ! -f $CNF ]; then
 fi
 
 TNLS=($(grep -ohE "^(\S+): " ~/.ssh/tunnels/config | cut -d':' -f1 | sort))
-TNLS=$(printf ", %s" "${TNLS[@]}")
-TNLS=${TNLS:2}
+TNLS=$(printf " %s" "${TNLS[@]}")
+TNLS=${TNLS:1}
 
 if [ -z "$1" ]; then
   echo "Debe pasar como argumento un nombre de tunel registrado en $LB_CNF"
