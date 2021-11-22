@@ -103,5 +103,13 @@ if __name__ == "__main__":
     if r.port is not None:
         u.add_rule(r)
 
-    for p in u.get_ports():
-        print(str(p))
+    ports = sorted(u.get_ports(), key=lambda x: (x.port, x.protocol))
+    width={k: 0 for k in Rule().__dict__.keys()}
+    for p in ports:
+        for k in width.keys():
+            v = p.__dict__[k]
+            if v is not None:
+                width[k] = max(width[k], len(str(v)))
+    line = "{protocol} {port:%s} -> {addr:%s}:{dest:%s} {description}" % (width["port"], width["addr"], width["dest"])
+    for p in ports:
+        print(line.format(**p.__dict__))
