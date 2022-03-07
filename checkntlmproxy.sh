@@ -30,6 +30,6 @@ if [ -z "$USERPASS" ]; then
 fi
 
 URL="http://detectportal.firefox.com/success.txt"
-echo "$ curl --proxy-ntlm --proxy-user $USERNAME:* --proxy $PROXYADD $URL"
+echo "$ curl --proxy-ntlm --proxy-user $USERNAME:* --proxy $PROXYADD ${URL#*//}"
 
 curl --proxy-ntlm --proxy-user "$USERNAME:$USERPASS" --proxy "$PROXYADD" "$URL"
