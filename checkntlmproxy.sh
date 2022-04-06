@@ -9,7 +9,7 @@ function ask {
   if [ -z "$3" ]; then
     question="# $2: "
   else
-    question="# $2: [$3]"
+    question="# $2: [$3] "
   fi
   if [ "$PRM1" == "--ask" ] || [ -z "$3" ]; then
     read "$1" "$question" myvar
@@ -22,8 +22,12 @@ function ask {
 
 PROXYADD=$(ask -p  "Proxy" "${http_proxy##*/}")
 USERNAME=$(ask -p  "Username" "$(whoami)")
+if [ "$PRM1" == "--ask" ] || [ -z "$PRM1" ]; then
 USERPASS=$(ask -sp "Password")
 echo ""
+else
+USERPASS="$PRM1"
+fi
 if [ -z "$USERPASS" ]; then
    echo "Password mandatory"
    exit 1
