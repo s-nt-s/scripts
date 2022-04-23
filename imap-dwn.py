@@ -43,12 +43,12 @@ subs:
 
 if not args.config:
     sys.exit("config arguments are required when --example is not present")
-    
+
 if not os.path.isfile(args.config):
     sys.exit(args.config+" doesn't exist")
 
 with open(args.config, 'r') as f:
-    config = yaml.load(f)
+    config = yaml.load(f, Loader=yaml.FullLoader)
 
 if "out" in config:
     c = os.path.abspath(args.config)
@@ -113,7 +113,7 @@ for msgId in data[0].split():
             if not isinstance(fileName, str):
                 fileName = str(fileName, 'utf-8', 'ignore')
             old_fileName = fileName
-            
+
             if config.get("lower", False):
                 fileName = fileName.lower()
 
@@ -123,7 +123,7 @@ for msgId in data[0].split():
             if "subs" in config:
                 for sub in config["subs"]:
                     fileName = sub[0].sub(sub[1], fileName)
-            
+
             filePath = os.path.join(config["out"], fileName)
             if not os.path.isfile(filePath):
                 if old_fileName == fileName:
