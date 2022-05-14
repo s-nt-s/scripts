@@ -20,9 +20,9 @@ fi
 echo "Limpiando paquetes almacenados en la cache ..."
 aptitude -y autoclean
 aptitude -y clean
-apt clean
-apt autoclean
-apt autoremove
+apt clean -y
+apt autoclean -y
+apt autoremove -y
 
 echo "Borrando thumbnails ..."
 if [ -d ~/.thumbnails ]; then
@@ -43,7 +43,7 @@ LANG=en_EN snap list --all | awk '/disabled/{print $1, $3}' |  while read snapna
 done
 
 echo "Eliminando flatpak unused ..."
-flatpak uninstall --unused
+flatpak uninstall --unused --assumeyes
 
 echo ""
 df -h /
