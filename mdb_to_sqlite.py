@@ -6,29 +6,76 @@ import subprocess
 import sys
 import argparse
 import logging
-import re
 
-def save(sql_script, out, save_sql=False):
-    logging.info("Guardando resultado")
-    sqlite = out+".sqlite"
+
+import logging
+import threading
+import subprocess
+
+
+class LogPipe(threading.Thread):
+
+    def __init__(self, level):
+        super().__init__()
+        self.daemon = False
+        self.level = level
+        self.fdRead, self.fdWrite = os.pipe()
+        self.pipeReader = os.fdopen(self.fdRead)
+        self.start()
+
+    def __enter__(self, *args, **kwargs):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        return self.close()
+
+    def fileno(self):
+        return self.fdWrite
+
+    def run(self):
+        for line in iter(self.pipeReader.readline, ''):
+            logging.log(self.level, line.strip('\n'))
+        self.pipeReader.close()
+
+    def close(self):
+        os.close(self.fdWrite)
+
+
+def run_cmd(*args):
+    logging.debug("$ "+" ".join(map(prs_arg, args)))
+    with LogPipe(logging.ERROR) as logpipe:
+        output = subprocess.check_output(args, stderr=logpipe)
+        output = output.decode(sys.stdout.encoding)
+    lines = len(list(l for l in output.strip().split('\n') if l.strip()))
+    if lines == 1:
+        logging.debug("> 1 línea")
+    else:
+        logging.debug("> %s líneas", lines)
+    return output
+
+
+def to_dump(prefix, *sql_script, save_sql=False):
+    logging.info("Creando .sqlite")
+    sqlite = prefix+".sqlite"
     if os.path.isfile(sqlite):
         os.remove(sqlite)
+    sql_script = "\n".join(sql_script)
     con = sqlite3.connect(sqlite)
     c = con.cursor()
     c.executescript(sql_script)
     con.commit()
     c.close()
     if save_sql:
-        with open(out+".sql", "w") as f:
+        logging.info("Creando .sql")
+        with open(prefix+".sql", "w") as f:
             f.write(sql_script)
 
-def run_cmd(*args):
-    logging.debug("$ "+" ".join("'"+a+"'" if ' ' in a else a for a in args))
-    output = subprocess.check_output(args)
-    output = output.decode(sys.stdout.encoding)
-    lines = list(l for l in output.strip().split('\n') if l.strip())
-    logging.debug("> %s líneas", len(lines))
-    return output
+
+def prs_arg(arg):
+    if isinstance(arg, str) and " " in arg:
+        return "'"+arg+"'"
+    return arg
+
 
 def get_schema(file):
     logging.info("Generando esquema")
@@ -42,33 +89,35 @@ def get_schema(file):
 
 def get_inserts(file):
     logging.debug("Obteniendo tablas")
-    # Get the list of table names with "mdb-tables"
     tables = run_cmd("mdb-tables", "-1", file)
     tables = [t for t in tables.split("\n") if len(t.strip()) > 0]
 
-    # start a transaction, speeds things up when importing
     sql_script = 'BEGIN;'
 
-    # Dump each table as a CSV file using "mdb-export",
-    # converting " " in table names to "_" for the CSV filenames.
     for table in tables:
         logging.info("Generando inserts: %s", table)
         output = run_cmd("mdb-export", "-I", "sqlite", "-D", "%Y-%m-%d %H:%M", file, table)
-        sql_script = sql_script + '\n' + output
+        if len(output.strip()) > 0:
+            sql_script = sql_script + '\n' + output
 
-    sql_script = sql_script + "\nCOMMIT;"  # end the transaction
+    sql_script = sql_script + "\nCOMMIT;"
 
     return sql_script
 
 
-def mdb_to_sqlite(DATABASE):
-    SQL_SCRIPT = get_schema(DATABASE) + '\n' + get_inserts(DATABASE)
-    save(SQL_SCRIPT, DATABASE)
+def mdb_to_sqlite(mdb, save_sql=False):
+    to_dump(
+        mdb,
+        get_schema(mdb),
+        get_inserts(mdb),
+        save_sql=save_sql
+    )
 
 
 if __name__ == "__main__":
-    EXT=("mdb", "accdb")
+    EXT = ("mdb", "accdb")
     parser = argparse.ArgumentParser("Convierte una base de datos Access ({}) a SQLite".format("|".join(EXT)))
+    parser.add_argument('--sql', action='store_true', help="Guardar script sql")
     parser.add_argument('--verbose', '-v', action='count', help="Nivel de depuración", default=0)
     parser.add_argument('mdb', help='Base de datos Access ({})'.format("|".join(EXT)))
     args = parser.parse_args()
@@ -88,4 +137,4 @@ if __name__ == "__main__":
     if ext not in EXT:
         sys.exit(args.mdb+" no termina en .mdb o .accdb")
 
-    mdb_to_sqlite(args.mdb)
+    mdb_to_sqlite(args.mdb, save_sql=args.sql)
