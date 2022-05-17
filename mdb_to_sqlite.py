@@ -73,16 +73,14 @@ if __name__ == "__main__":
     parser.add_argument('mdb', help='Base de datos Access ({})'.format("|".join(EXT)))
     args = parser.parse_args()
 
-    if args.verbose:
-        levels = [logging.INFO, logging.DEBUG]
-        main_level = min(len(levels)-1, args.verbose-1)
-        alte_level = min(len(levels)-1, args.verbose-2)
+    levels = [logging.INFO, logging.DEBUG]
+    level = min(len(levels)-1, args.verbose)
 
-        logging.basicConfig(
-            level=levels[main_level],
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%M-%d %H:%M:%S'
-        )
+    logging.basicConfig(
+        level=levels[level],
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%M-%d %H:%M:%S'
+    )
 
     if not os.path.isfile(args.mdb):
         sys.exit(args.mdb+" no existe")
