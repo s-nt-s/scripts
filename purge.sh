@@ -44,6 +44,7 @@ done
 
 echo "Eliminando flatpak unused ..."
 flatpak uninstall --unused --assumeyes
+rm -rf /var/tmp/flatpak-cache-*
 
 echo ""
 df -h /
