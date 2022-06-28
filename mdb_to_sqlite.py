@@ -55,7 +55,7 @@ def run_cmd(*args):
 
 
 def to_dump(sqlite, *sql_script, save_sql=False):
-    logging.info("Creando " + sqlite)
+    logging.info("Creando " + rel_home(sqlite))
     if isfile(sqlite):
         os.remove(sqlite)
     sql_script = "\n".join(sql_script)
@@ -67,16 +67,21 @@ def to_dump(sqlite, *sql_script, save_sql=False):
     if save_sql:
         sqlfile = sqlite.rsplit(".", 1)[0]
         sqlfile = sqlfile + ".sql"
-        logging.info("Creando " + sqlfile)
+        logging.info("Creando " + rel_home(sqlfile))
         with open(sqlfile, "w") as f:
             f.write(sql_script)
 
 
-def prs_arg(arg):
-    if arg == HOME:
+def rel_home(path):
+    if path == HOME:
         return "~"
-    if arg.startswith(HOME + "/"):
-        arg = "~" + arg[len(HOME):]
+    if path.startswith(HOME + "/"):
+        return "~" + path[len(HOME):]
+    return path
+
+
+def prs_arg(arg):
+    arg = rel_home(arg)
     if isinstance(arg, str) and " " in arg:
         return "'" + arg + "'"
     return arg
