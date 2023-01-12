@@ -30,13 +30,13 @@ case "$1" in
 
 start)
 
-  echo "Starting tunnel to $SSH_TUNN_PT"
+  echo "Starting tunnel to $RDP_NODE_NM"
   exe ssh -M -S "$CRL" -fnNT -L "${SSH_TUNN_PT}:${RDP_NODE_NM}:3389" "$SSH_NODE_IP"
   exe ssh -S "$CRL" -O check "$RDP_NODE_NM"
   ;;
 
 stop)
-  echo "Stopping tunnel to $SSH_TUNN_PT"
+  echo "Stopping tunnel to $RDP_NODE_NM"
   exe ssh -S "$CRL" -O exit "$RDP_NODE_NM"
  ;;
 
