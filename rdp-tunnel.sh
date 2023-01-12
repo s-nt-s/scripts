@@ -4,23 +4,40 @@
 
 scriptname="$(basename $0)"
 
-if [ $# -lt 3 ]; then
-    echo "Usage: $scriptname start | stop  RDP_NODE_IP  SSH_NODE_IP"
+if [ $# -lt 4 ]; then
+    echo "Usage: $scriptname start | stop RDP_NODE_NAME SSH_NODE_IP SSH_TUNNEL_PORT"
     exit
 fi
+
+exe() {
+  CM=$(echo "$@" | sed "s|${HOME}/|~/|g")
+  echo "\$ $CM"
+  "$@"
+}
+
+RDP_NODE_NM="$2"
+SSH_NODE_IP="$3"
+SSH_TUNN_PT="$4"
+
+if [[ "$SSH_TUNN_PT" == *":"* ]]; then
+  SSH_TUNN_PT=$(echo "$SSH_TUNN_PT" | sed 's/.*://')
+fi
+
+
+CRL="/tmp/ssh_${scriptname}_${RDP_NODE_NM}_${SSH_NODE_IP}_${SSH_TUNN_PT}.control"
 
 case "$1" in
 
 start)
 
-  echo "Starting tunnel to $3"
-  ssh -M -S ~/.ssh/$scriptname.control -fnNT -L 3389:$2:3389 $3
-  ssh -S ~/.ssh/$scriptname.control -O check $3
+  echo "Starting tunnel to $SSH_TUNN_PT"
+  exe ssh -M -S "$CRL" -fnNT -L "${SSH_TUNN_PT}:${RDP_NODE_NM}:3389" "$SSH_NODE_IP"
+  exe ssh -S "$CRL" -O check "$RDP_NODE_NM"
   ;;
 
 stop)
-  echo "Stopping tunnel to $3"
-  ssh -S ~/.ssh/$scriptname.control -O exit $3 
+  echo "Stopping tunnel to $SSH_TUNN_PT"
+  exe ssh -S "$CRL" -O exit "$RDP_NODE_NM"
  ;;
 
 *)
