@@ -21,7 +21,9 @@ function ask {
 }
 
 PROXYADD=$(ask -p  "Proxy" "${http_proxy##*/}")
-USERNAME=$(ask -p  "Username" "$(whoami)")
+if [ -z "$USERNAME" ]; then
+    USERNAME=$(ask -p  "Username" "$(whoami)")
+fi
 if [ "$PRM1" == "--ask" ] || [ -z "$PRM1" ]; then
 USERPASS=$(ask -sp "Password")
 echo ""
