@@ -57,7 +57,6 @@ echo "/etc -> {OUT}etc.tar.gz"
 find /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* ! -empty -exec tar czf "${OUT}etc.tar.gz" {} +
 for DHM in "${HOMES[@]}"; do
    HOUT="${OUT}$(basename $DHM)"
-   mkdir -p "HOUT"
    echo "$DHM -> $HOUT"
    sudo rsync --info=progress2 -azh --delete --delete-excluded --exclude-from="${OUT}exclude.txt" "$DHM" "$HOUT"
 done
