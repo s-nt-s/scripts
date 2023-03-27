@@ -62,12 +62,13 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*
 
 #printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*' -type d -name "node_modules" -printf '/%P\n' | sort | uniq
 
-find /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
+find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
 
 DHM="/etc/"
 HOUT="${OUT}$(basename $DHM)"
 echo "$DHM -> $HOUT"
 rsync --info=progress2 -azh --delete --delete-excluded --prune-empty-dirs --files-from="${OUT}etc.txt" "$DHM" "$HOUT"
+find "$HOUT" -maxdepth 1 -empty -delete
 for DHM in "${HOMES[@]}"; do
    HOUT="${OUT}$(basename $DHM)"
    echo "$DHM -> $HOUT"
