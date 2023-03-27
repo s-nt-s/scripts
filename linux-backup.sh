@@ -63,7 +63,7 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*
 #printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*' -type d -name "node_modules" -printf '/%P\n' | sort | uniq
 
 echo "/etc -> {OUT}etc.tar.gz"
-find /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* ! -empty -exec tar czf "${OUT}etc.tar.gz" {} +
+find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* ! -empty -exec tar czf "${OUT}etc.tar.gz" {} +
 for DHM in "${HOMES[@]}"; do
    HOUT="${OUT}$(basename $DHM)"
    echo "$DHM -> $HOUT"
