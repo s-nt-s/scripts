@@ -48,7 +48,7 @@ cat > "${OUT}exclude.txt" <<EOL
 /CheckPoint
 EOL
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.(config|icons|local|mozilla|pingus|purple|pynagram|texmf-var|TeXworks|thunderbird|aws|aws-sam|cdk|cert|claws-mail|davmail.properties|ecryptfs|eteks|face|filezilla|gconf|gdfuse|gnupg|hedgewars|kube|netrc|k8slens|pgpass|Private|proxychains|psql_history|python_history|RapidSVN|pypirc|sqlite_history|ssh|subversion|vscode|xmpp.yml|docker|profile.*|pgadmin.*|git.*|elect.*|dbeaver.*|bash.*|bit.*|mysql.*|shar.*-ri.*b)$' >> "${OUT}exclude.txt"
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.(config|icons|local|mozilla|pingus|purple|pynagram|texmf-var|TeXworks|thunderbird|aws|aws-sam|cdk|cert|claws-mail|davmail.properties|ecryptfs|eteks|face|filezilla|gconf|gdfuse|gnupg|hedgewars|kube|netrc|k8slens|pgpass|Private|proxychains|RapidSVN|pypirc|ssh|subversion|vscode|xmpp.yml|docker|bash_aliases|profile.*|pgadmin.*|git.*|elect.*|dbeaver.*|bit.*|mysql.*|shar.*-ri.*b)$' >> "${OUT}exclude.txt"
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.local/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/(share)$' >> "${OUT}exclude.txt"
 
@@ -62,11 +62,17 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*
 
 #printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*' -type d -name "node_modules" -printf '/%P\n' | sort | uniq
 
-echo "/etc -> {OUT}etc.tar.gz"
-find /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* ! -empty -exec tar czf "${OUT}etc.tar.gz" {} +
+find /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
+
+DHM="/etc/"
+HOUT="${OUT}$(basename $DHM)"
+echo "$DHM -> $HOUT"
+rsync --info=progress2 -azh --delete --delete-excluded --prune-empty-dirs --files-from="${OUT}etc.txt" "$DHM" "$HOUT"
 for DHM in "${HOMES[@]}"; do
    HOUT="${OUT}$(basename $DHM)"
    echo "$DHM -> $HOUT"
    sudo rsync --info=progress2 -azh --delete --delete-excluded --exclude-from="${OUT}exclude.txt" "$DHM" "$HOUT"
+   # No uso --prune-empty-dirs porque a maxdepth > 1 hay directorios vacios necesarios
+   find "$HOUT" -maxdepth 1 -empty -delete
 done
 
