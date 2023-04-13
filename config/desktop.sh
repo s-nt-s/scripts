@@ -43,7 +43,7 @@ Version=1.0
 Name=Chromium $perfil_name
 Comment=Run Chromium with $perfil_name profile
 Comment[es]=Arrancar Chromium con el perfil $perfil_name
-Exec=chromium-browser --profile-directory="$perfil_dir" %U
+Exec=chromium --profile-directory="$perfil_dir" %U
 Terminal=false
 X-MultipleArgs=false
 Type=Application
