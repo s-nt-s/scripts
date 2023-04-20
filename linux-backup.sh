@@ -81,6 +81,7 @@ cat >> "${OUT}exclude.txt" <<EOL
 /.config/chromium
 /.config/gajim
 /.config/transmission-remote-gtk
+/dwn/podcasts
 EOL
 fi
 
