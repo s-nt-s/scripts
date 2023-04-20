@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+#set -e
 function error {
    echo $@
    exit 1
@@ -48,6 +48,7 @@ cat > "${OUT}exclude.txt" <<EOL
 /CheckPoint
 EOL
 
+set +e
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.(toxmpp|config|icons|local|mozilla|pingus|purple|pynagram|texmf-var|TeXworks|thunderbird|aws|aws-sam|cdk|cert|claws-mail|davmail.properties|ecryptfs|eteks|face|filezilla|gconf|gdfuse|gnupg|hedgewars|kube|netrc|k8slens|pgpass|Private|proxychains|RapidSVN|pypirc|ssh|subversion|vscode|xmpp.yml|docker|bash_aliases|profile.*|pgadmin.*|git.*|elect.*|dbeaver.*|bit.*|mysql.*|shar.*-ri.*b)$' >> "${OUT}exclude.txt"
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.local/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/(share)$' >> "${OUT}exclude.txt"
@@ -64,6 +65,7 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*
 
 find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
 
+set -e
 if [ "$(cat /etc/issue | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')" == "raspbian" ]; then
 cat >> "${OUT}exclude.txt" <<EOL
 /.claws-mail
