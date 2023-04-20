@@ -52,9 +52,9 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -pr
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.local/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/(share)$' >> "${OUT}exclude.txt"
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 3 -path '{}.local/share/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/share/(calibre.*|DBeaver.*|fonts|gajim|gvfs-metadata|keyrings|notes|remmina|Tele.*Desktop|tomboy)$' >> "${OUT}exclude.txt"
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 3 -path '{}.local/share/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/share/(greg|calibre.*|DBeaver.*|fonts|gajim|gvfs-metadata|keyrings|notes|remmina|Tele.*Desktop|tomboy)$' >> "${OUT}exclude.txt"
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.config/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.config/(calibre.*|chromium|filezilla|freerdp|gajim|google-chrome|hexchat|kdenlive.*|keepassx|Lens|Microsoft.*|mon.*-project|Mumble|remmina|skypeforlinux|teams|tomboy|transmission.*|VirtualBox)$' >> "${OUT}exclude.txt"
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.config/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.config/(greg|calibre.*|chromium|filezilla|freerdp|gajim|google-chrome|hexchat|kdenlive.*|keepassx|Lens|Microsoft.*|mon.*-project|Mumble|remmina|skypeforlinux|teams|tomboy|transmission.*|VirtualBox)$' >> "${OUT}exclude.txt"
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.mozilla/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.mozilla/(firefox)$' >> "${OUT}exclude.txt"
 
