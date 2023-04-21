@@ -63,7 +63,7 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*
 
 #printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*' -type d -name "node_modules" -printf '/%P\n' | sort | uniq
 
-find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
+find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* /etc/transmission-daemon /etc/exim4 /etc/ssh /etc/default/sslh -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
 
 set -e
 if [ "$(cat /etc/issue | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')" == "raspbian" ]; then
