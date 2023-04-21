@@ -49,13 +49,15 @@ cat > "${OUT}exclude.txt" <<EOL
 /jd2
 EOL
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.(sendxmpprc|config|icons|local|mozilla|pingus|purple|pynagram|texmf-var|TeXworks|thunderbird|aws|aws-sam|cdk|cert|claws-mail|davmail.properties|ecryptfs|eteks|face|filezilla|gconf|gdfuse|gnupg|hedgewars|kube|netrc|k8slens|pgpass|Private|proxychains|RapidSVN|pypirc|ssh|subversion|vscode|xmpp.yml|docker|bash_aliases|profile.*|pgadmin.*|git.*|elect.*|dbeaver.*|bit.*|mysql.*|shar.*-ri.*b)$' >> "${OUT}exclude.txt"
+
+set +e
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 1 -name '.*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.(sendxmpprc|toxmpp|config|icons|local|mozilla|pingus|purple|pynagram|texmf-var|TeXworks|thunderbird|aws|aws-sam|cdk|cert|claws-mail|davmail.properties|ecryptfs|eteks|face|filezilla|gconf|gdfuse|gnupg|hedgewars|kube|netrc|k8slens|pgpass|Private|proxychains|RapidSVN|pypirc|ssh|subversion|vscode|xmpp.yml|docker|bash_aliases|profile.*|pgadmin.*|git.*|elect.*|dbeaver.*|bit.*|mysql.*|shar.*-ri.*b)$' >> "${OUT}exclude.txt"
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.local/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/(share)$' >> "${OUT}exclude.txt"
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 3 -path '{}.local/share/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/share/(calibre.*|DBeaver.*|fonts|gajim|gvfs-metadata|keyrings|notes|remmina|Tele.*Desktop|tomboy)$' >> "${OUT}exclude.txt"
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 3 -path '{}.local/share/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.local/share/(greg|calibre.*|DBeaver.*|fonts|gajim|gvfs-metadata|keyrings|notes|remmina|Tele.*Desktop|tomboy)$' >> "${OUT}exclude.txt"
 
-printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.config/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.config/(calibre.*|chromium|filezilla|freerdp|gajim|google-chrome|hexchat|kdenlive.*|keepassx|Lens|Microsoft.*|mon.*-project|Mumble|remmina|skypeforlinux|teams|tomboy|transmission.*|VirtualBox|geany)$' >> "${OUT}exclude.txt"
+printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.config/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.config/(geany|greg|calibre.*|chromium|filezilla|freerdp|gajim|google-chrome|hexchat|kdenlive.*|keepassx|Lens|Microsoft.*|mon.*-project|Mumble|remmina|skypeforlinux|teams|tomboy|transmission.*|VirtualBox)$' >> "${OUT}exclude.txt"
 
 printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 2 -path '{}.mozilla/*' -printf '/%P\n' | sort | uniq | grep -v -E '^\/\.mozilla/(firefox)$' >> "${OUT}exclude.txt"
 
@@ -66,7 +68,29 @@ printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -path '{}wks/*' -type f -n
 
 #printf "%s\0" "${HOMES[@]}" | xargs -0 -I{} find '{}' -maxdepth 4 -path '{}wks/*' -type d -name "node_modules" -printf '/%P\n' | sort | uniq
 
-find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* /etc/pam.d -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
+find /etc/passwd /etc/shadow /etc/cron* /etc/fstab /etc/host* /etc/systemd/ /etc/nginx /etc/apache2/ /etc/aliases /etc/environment /etc/sudo* /etc/pam.d /etc/transmission-daemon /etc/exim4/passwd.client /etc/letsencrypt /etc/usbmount /etc/ssh /etc/default/sslh -type f ! -name .placeholder ! -empty | sed 's|^/etc||' > "${OUT}etc.txt"
+
+set -e
+if [ "$(cat /etc/issue | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')" == "raspbian" ]; then
+cat >> "${OUT}exclude.txt" <<EOL
+/.claws-mail
+/.eteks
+/.gconf
+/.hedgewars
+/.icons
+/.pingus
+/.purple
+/.pynagram
+/.profile
+/.local/share/gajim
+/.local/share/gvfs-metadata
+/.config/geany
+/.config/chromium
+/.config/gajim
+/.config/transmission-remote-gtk
+/dwn/podcasts
+EOL
+fi
 
 DHM="/etc/"
 HOUT="${OUT}$(basename $DHM)"
