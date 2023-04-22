@@ -30,12 +30,7 @@ fi
 
 #SSID=$(LANG=en_EN nmcli -t -f active,ssid dev wifi | egrep '^yes' | cut -d: -f2)
 SSID=$(iwgetid -r)
-MAC=""
-
-ROUTER=$(ip route show match 0/0 | grep default | awk '{print $3}' | sort | uniq)
-if [ ! -z "$ROUTER" ]; then
-    MAC=$(ip neigh | grep $ROUTER | awk '{print $5}' | sort | uniq)
-fi
+MAC=$(ip route show match 0/0 | grep default | awk '{print $3}' | sort | uniq | xargs -I{} bash -c "ip neigh | grep {} | awk '{print \$5}' | sort | uniq")
 
 awk -i inplace -v SSID="$SSID" -v MAC="$MAC" '
     BEGIN {
