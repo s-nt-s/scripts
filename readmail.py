@@ -57,7 +57,7 @@ class Mail:
     def __read_file(self, name, body_bytes):
         ext = name.rsplit(".")[-1].lower()
         if ext == "json":
-            body = body_bytes.decode('utf8').replace("'", '"')
+            body = body_bytes.decode('utf8')
             return json.loads(body)
         return body_bytes
 
