@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 import os
+from os.path import isfile
 import sqlite3
-import subprocess
+from subprocess import check_output
 import sys
 import argparse
-import logging
-
 
 import logging
 import threading
-import subprocess
+
+HOME = os.environ.get('HOME')
 
 
 class LogPipe(threading.Thread):
@@ -42,9 +42,9 @@ class LogPipe(threading.Thread):
 
 
 def run_cmd(*args):
-    logging.debug("$ "+" ".join(map(prs_arg, args)))
+    logging.debug("$ " + " ".join(map(prs_arg, args)))
     with LogPipe(logging.ERROR) as logpipe:
-        output = subprocess.check_output(args, stderr=logpipe)
+        output = check_output(args, stderr=logpipe)
         output = output.decode(sys.stdout.encoding)
     lines = len(list(l for l in output.strip().split('\n') if l.strip()))
     if lines == 1:
@@ -54,10 +54,9 @@ def run_cmd(*args):
     return output
 
 
-def to_dump(prefix, *sql_script, save_sql=False):
-    logging.info("Creando .sqlite")
-    sqlite = prefix+".sqlite"
-    if os.path.isfile(sqlite):
+def to_dump(sqlite, *sql_script, save_sql=False):
+    logging.info("Creando " + rel_home(sqlite))
+    if isfile(sqlite):
         os.remove(sqlite)
     sql_script = "\n".join(sql_script)
     con = sqlite3.connect(sqlite)
@@ -66,14 +65,25 @@ def to_dump(prefix, *sql_script, save_sql=False):
     con.commit()
     c.close()
     if save_sql:
-        logging.info("Creando .sql")
-        with open(prefix+".sql", "w") as f:
+        sqlfile = sqlite.rsplit(".", 1)[0]
+        sqlfile = sqlfile + ".sql"
+        logging.info("Creando " + rel_home(sqlfile))
+        with open(sqlfile, "w") as f:
             f.write(sql_script)
 
 
+def rel_home(path):
+    if path == HOME:
+        return "~"
+    if path.startswith(HOME + "/"):
+        return "~" + path[len(HOME):]
+    return path
+
+
 def prs_arg(arg):
+    arg = rel_home(arg)
     if isinstance(arg, str) and " " in arg:
-        return "'"+arg+"'"
+        return "'" + arg + "'"
     return arg
 
 
@@ -105,9 +115,9 @@ def get_inserts(file):
     return sql_script
 
 
-def mdb_to_sqlite(mdb, save_sql=False):
+def mdb_to_sqlite(mdb, out, save_sql=False):
     to_dump(
-        mdb,
+        out,
         get_schema(mdb),
         get_inserts(mdb),
         save_sql=save_sql
@@ -118,12 +128,13 @@ if __name__ == "__main__":
     EXT = ("mdb", "accdb")
     parser = argparse.ArgumentParser("Convierte una base de datos Access ({}) a SQLite".format("|".join(EXT)))
     parser.add_argument('--sql', action='store_true', help="Guardar script sql")
+    parser.add_argument('--out', help="Fichero de salida")
     parser.add_argument('--verbose', '-v', action='count', help="Nivel de depuración", default=0)
     parser.add_argument('mdb', help='Base de datos Access ({})'.format("|".join(EXT)))
-    args = parser.parse_args()
+    pargs = parser.parse_args()
 
     levels = [logging.INFO, logging.DEBUG]
-    level = min(len(levels)-1, args.verbose)
+    level = min(len(levels) - 1, pargs.verbose)
 
     logging.basicConfig(
         level=levels[level],
@@ -131,10 +142,16 @@ if __name__ == "__main__":
         datefmt='%Y-%M-%d %H:%M:%S'
     )
 
-    if not os.path.isfile(args.mdb):
-        sys.exit(args.mdb+" no existe")
-    ext = args.mdb.split(".")[-1].lower()
+    if not isfile(pargs.mdb):
+        sys.exit(pargs.mdb + " no existe")
+    if pargs.out is None:
+        pargs.out = pargs.mdb + ".sqlite"
+    if not pargs.out.endswith(".sqlite"):
+        sys.exit(pargs.out + " no termina en .sqlite")
+    if isfile(pargs.out):
+        sys.exit(pargs.out + " ya existe")
+    ext = pargs.mdb.split(".")[-1].lower()
     if ext not in EXT:
-        sys.exit(args.mdb+" no termina en .mdb o .accdb")
+        sys.exit(pargs.mdb + " no termina en .mdb o .accdb")
 
-    mdb_to_sqlite(args.mdb, save_sql=args.sql)
+    mdb_to_sqlite(pargs.mdb, pargs.out, save_sql=pargs.sql)

@@ -8,7 +8,14 @@ import sqlite3
 import sys
 
 import bs4
+
+import urllib3
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+urllib3.disable_warnings()
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 os.chdir(os.path.dirname(sys.argv[0]))
 
@@ -35,17 +42,17 @@ def get(url, selector):
     global msg
     try:
         headers = {'Accept-Encoding': None}
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, verify=False)
         soup = bs4.BeautifulSoup(response.text, "html.parser")
         return soup.select(selector)
-    except Exception, e:
-        print "\nERROR consultando: " + url + "\n" + str(e) + "\n"
+    except Exception as e:
+        print("\nERROR consultando: " + url + "\n" + str(e) + "\n")
     return None
 
 
 def send(msg):
     cmd = "sudo say \"" + msg + "\" &"
-    print cmd
+    print(cmd)
     call(cmd, shell=True)
 
 cur = con.cursor()
@@ -59,7 +66,7 @@ for web in webs:
             txt = txt + " " + node.get_text()
         txt = (sp.sub(" ", txt)).strip()
         if txt != web[2]:
-            print web[0]
+            print(web[0])
             c = con.cursor()
             c.execute("update WEBS set TXT=?, FCH=? where URL=?",
                       (txt, datetime.datetime.now(), web[0]))

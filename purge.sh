@@ -35,8 +35,6 @@ fi
 echo "Eliminando logs antiguos ..."
 journalctl --vacuum-time=3d
 
-find ~/wks -name geckodriver.log -delete
-
 echo "Eliminando span disabled ..."
 LANG=en_EN snap list --all | awk '/disabled/{print $1, $3}' |  while read snapname revision; do
   snap remove "$snapname" --revision="$revision"
