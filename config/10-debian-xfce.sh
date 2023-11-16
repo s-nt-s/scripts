@@ -2,10 +2,9 @@
 
 cd "$(dirname "$0")"
 
-sudo get  update
-sudo get  -y install numix-gtk-theme
-sudo apt install xfce4-whiskermenu-plugin
-
+sudo get update
+sudo get -y install numix-gtk-theme
+sudo apt -y install xfce4-whiskermenu-plugin
 
 xfconf-query -c xfce4-session -np '/shutdown/ShowSuspend' -t 'bool' -s 'false'
 xfconf-query -c xfce4-session -np '/shutdown/ShowHibernate' -t 'bool' -s 'false'
@@ -27,6 +26,15 @@ xfconf-query -c xsettings -p /Net/ThemeName -s Numix
 xfconf-query -c xfwm4 -p /general/theme -s Numix
 xfconf-query -c xsettings -p /Net/IconThemeName -s Mint-Y-Teal
 
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorrdp0/workspace0/image-style -s 0
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorrdp0/workspace0/color-style -s 0
+
+sudo apt -y install firefox-esr-l10n-es-es
+sudo apt -y install libreoffice-l10n-es
+sudo apt -y install libreoffice-help-es
+
 sudo sed 's|^# es_ES.UTF-8|es_ES.UTF-8|' -i /etc/locale.gen
 sudo locale-gen
+sudo update-locale "LANG=es_ES.UTF-8"
+sudo dpkg-reconfigure --frontend noninteractive locales
 

@@ -11,7 +11,11 @@ autopep8 --in-place --recursive .
 isort -rc .
 
 if [ -f ./requirements.txt ] || [ "$1" == "-r" ]; then
-  pipreqs . --force
+  if [ -d env ]; then
+    pipreqs . --force --ignore env
+  else
+    pipreqs . --force
+  fi
   if grep -q "beautifulsoup4" requirements.txt; then
   if grep -q -e "[\"']lxml[\"']" --include="*.py" -r .; then
     pip3 freeze | grep lxml >> requirements.txt
