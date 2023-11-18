@@ -45,14 +45,14 @@ class SchemasPy:
             f.write(dedent(txt).strip())
         return True
 
-    def report(self, file, *flags, out=None, **kargv):
+    def report(self, file: str, *flags, out=None, **kargv):
         # https://github.com/schemaspy/schemaspy/issues/524#issuecomment-496010502
         if not isdir(self.home):
             makedirs(self.home, exist_ok=True)
         if out is None:
             out = tempfile.mkdtemp()
 
-        reload_1 = self.dwn(self.jar)
+        self.set_env(file)
         db = None
         cmd = ["java", "-jar", self._jar, "-o", out]
         out = realpath(out)
@@ -62,26 +62,6 @@ class SchemasPy:
                 relpath(file, self.root),
             ])
         else:
-            reload_2 = self.dwn(self.driver)
-            reload = reload_1 or reload_2
-
-            self.write(self.root + "sqlite.properties", '''
-                driver=org.sqlite.JDBC
-                description=SQLite
-                driverPath={driver}
-                connectionSpec=jdbc:sqlite:<db>
-            '''.format(driver=self._driver), overwrite=reload)
-
-            self.write(self.root + "schemaspy.properties", '''
-                schemaspy.t=sqlite
-                schemaspy.sso=true
-            ''', overwrite=reload)
-
-            self.write(self.root + "rename.sh", '''
-                #!/bin/bash
-                grep "$1" -l -r $2 | xargs -d '\\n' sed -i -e "s|${1}||g"
-            ''', overwrite=True)
-
             name = basename(file)
             name = name.rsplit(".", 1)[0]
             db = realpath(file)
@@ -115,6 +95,31 @@ class SchemasPy:
 
         print(out + "/index.html")
         return out
+
+    def set_env(self, file: str):
+        reload_1 = self.dwn(self.jar)
+        if not file.endswith(".properties"):
+            if "=sqlite\n" not in read(file):
+                return
+        reload_2 = self.dwn(self.driver)
+        reload = reload_1 or reload_2
+
+        self.write(self.root + "sqlite.properties", '''
+            driver=org.sqlite.JDBC
+            description=SQLite
+            driverPath={driver}
+            connectionSpec=jdbc:sqlite:<db>
+        '''.format(driver=self._driver), overwrite=reload)
+
+        self.write(self.root + "schemaspy.properties", '''
+            schemaspy.t=sqlite
+            schemaspy.sso=true
+        ''', overwrite=reload)
+
+        self.write(self.root + "rename.sh", '''
+            #!/bin/bash
+            grep "$1" -l -r $2 | xargs -d '\\n' sed -i -e "s|${1}||g"
+        ''', overwrite=True)
 
     def run(self, *args):
         def pr_arg(a):
