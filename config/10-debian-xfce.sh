@@ -2,8 +2,8 @@
 
 cd "$(dirname "$0")"
 
-sudo get  update
-sudo get  -y install numix-gtk-theme
+sudo get update
+sudo get -y install numix-gtk-theme
 sudo apt install xfce4-whiskermenu-plugin
 
 
