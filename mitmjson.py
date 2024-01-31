@@ -107,7 +107,7 @@ def response(flow):
     if res_redirect:
         info["response"]["redirectURL"] = res_redirect
 
-    if flow.request.method in ("POST", "PUT", "PATCH"):
+    if flow.request.method in ("GET", "POST", "PUT", "PATCH"):
         req_params = {}
         for a, b in flow.request.urlencoded_form.items(multi=True):
             req_params[a] = b

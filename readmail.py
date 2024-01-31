@@ -62,3 +62,5 @@ class Mail:
         return body_bytes
 
 mail = Mail(Parser().parse(sys.stdin))
+print(mail.attachments)
+print(mail.body)

@@ -14,6 +14,13 @@ TNLS=($(grep -ohE "^(\S+): " ~/.ssh/tunnels/config | cut -d':' -f1 | sort))
 TNLS=$(printf " %s" "${TNLS[@]}")
 TNLS=${TNLS:1}
 
+MODE=""
+
+if [ "$1" == "start" ] || [ "$1" == "stop" ]; then
+    MODE="$1"
+    shift
+fi
+
 if [ -z "$1" ]; then
   echo "Debe pasar como argumento un nombre de tunel registrado en $LB_CNF"
   if [ ! -z "$TNLS" ]; then
@@ -43,6 +50,13 @@ LN=$(echo "${LN#*: }" | sed 's/\s\s*/ /g' | sed 's/^\s*|\s*$//g')
 TG=$(echo "$LN" | rev | cut -d' ' -f1 | rev)
 
 CNT="$DIR/$TN.control"
+if [ "$MODE" == "start" ] && [ -e "$CNT" ]; then
+    exit 0
+fi
+if [ "$MODE" == "stop" ] && [ ! -e "$CNT" ]; then
+    exit 0
+fi
+
 if [ -e "$CNT" ]; then
   echo "# $TN va a ser finalizado"
   exe ssh -S "$CNT" -O exit $TG

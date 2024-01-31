@@ -46,7 +46,7 @@ def dwn(opt):
         )
     if not isFormat:
         save(result, "/tmp/"+result["id"]+".json")
-        if "es" in result["subtitles"]:
+        if "es" in (result.get("subtitles") or []):
             opt['subtitleslangs']=['es', 'en']
         else:
             opt['subtitleslangs']=['en', 'es']

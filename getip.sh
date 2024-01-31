@@ -12,11 +12,12 @@ fi
 
 if [ ! -z "$MY_DIG" ]; then
   if [ "$DBG" == "-v" ]; then
-    "$MY_DIG" +short myip.opendns.com @resolver1.opendns.com
+    IP=$("$MY_DIG" +short myip.opendns.com @resolver1.opendns.com)
   else
-    "$MY_DIG" +short myip.opendns.com @resolver1.opendns.com 2>/dev/null
+    IP=$("$MY_DIG" +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)
   fi
-  if [ $? -eq 0 ]; then
+  if [ ! -z "$IP" ] && [ ${#IP} -ge 8 ] && [ ${#IP} -le 16 ]; then
+    echo "$IP"
     exit 0
   fi
 fi
