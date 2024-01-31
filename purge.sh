@@ -8,8 +8,12 @@ fi
 df -h /
 echo ""
 
-echo "Limpiando paquetes huerfanos"
+if command -v docker &> /dev/null; then
+echo "Limpiando paquetes huerfanos ..."
 deborphan | xargs apt-get -y remove --purge
+else
+echo "WARNING: considere instalar deborphan pàra poder limpiar paquetes huerfanos"
+fi
 
 echo "Limpiando archivos de configuración obsoletos ..."
 PK="$(COLUMNS=200 dpkg -l | grep "^rc" | tr -s ' ' | cut -d ' ' -f 2)"
@@ -35,14 +39,23 @@ fi
 echo "Eliminando logs antiguos ..."
 journalctl --vacuum-time=3d
 
+if command -v snap &> /dev/null; then
 echo "Eliminando span disabled ..."
 LANG=en_EN snap list --all | awk '/disabled/{print $1, $3}' |  while read snapname revision; do
   snap remove "$snapname" --revision="$revision"
 done
+fi
 
+if command -v flatpak &> /dev/null; then
 echo "Eliminando flatpak unused ..."
 flatpak uninstall --unused --assumeyes
 rm -rf /var/tmp/flatpak-cache-*
+fi
+
+if command -v docker &> /dev/null; then
+echo "Eliminando restos de docker..."
+docker system prune --force
+fi
 
 echo ""
 df -h /
