@@ -8,7 +8,7 @@ fi
 df -h /
 echo ""
 
-if command -v docker &> /dev/null; then
+if command -v deborphan &> /dev/null; then
 echo "Limpiando paquetes huerfanos ..."
 deborphan | xargs apt-get -y remove --purge
 else
