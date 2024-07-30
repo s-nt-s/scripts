@@ -54,7 +54,7 @@ fi
 
 if command -v docker &> /dev/null; then
 echo "Eliminando restos de docker..."
-docker system prune --force
+docker system prune --volumes --force
 fi
 
 echo ""
