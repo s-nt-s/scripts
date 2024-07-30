@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from io import TextIOWrapper
 import os
 from fcntl import flock, LOCK_EX, LOCK_UN
@@ -9,13 +11,19 @@ import re
 
 TARGET = "/etc/hosts"
 SECTIONS = ("SSID", "MAC", "VPN", "VPN_DNS")
-re_ip = re.compile(r"^\d+\.\d+\.\d+\.\d+\s+(\S+)")
+re_ip_line = re.compile(r"^\d+\.\d+\.\d+\.\d+\s+(\S+)")
+re_ip = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 
 
 def run(*args):
     if len(args) == 1 and ' ' in args[0]:
         return run(*args[0].split())
-    r = subprocess.run(args, capture_output=True, text=True)
+    try:
+        print("$", *args)
+        r = subprocess.run(args, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print(e)
+        return ''
     return r.stdout
 
 
@@ -29,61 +37,52 @@ def runln(*args):
 class Data:
     @cached_property
     def ssid(self) -> Tuple[str]:
-        try:
-            return tuple(sorted(run('iwgetid -r').strip().split()))
-        except subprocess.CalledProcessError:
-            return tuple()
+        return tuple(sorted(run('iwgetid -r').strip().split()))
 
     @cached_property
     def default_route(self) -> Tuple[str]:
-        try:
-            ips_route = set()
-            for ln in runln('ip route show match 0/0'):
-                spl = ln.split()
-                if spl[0] == "default":
-                    ips_route.add(spl[2])
-            return tuple(sorted(ips_route))
-        except subprocess.CalledProcessError:
-            return tuple()
+        ips_route = set()
+        for ln in runln('ip route show match 0/0'):
+            spl = ln.split()
+            if spl[0] == "default":
+                ips_route.add(spl[2])
+        return tuple(sorted(ips_route))
 
     @cached_property
     def mac(self) -> Tuple[str]:
-        try:
-            macs = set()
-            for ln in runln('ip neigh'):
-                spl = ln.split()
-                if spl[0] in self.default_route:
-                    macs.add(spl[4])
-            return tuple(sorted(macs))
-        except subprocess.CalledProcessError:
-            return tuple()
+        macs = set()
+        for ln in runln('ip neigh'):
+            spl = ln.split()
+            if spl[0] in self.default_route:
+                macs.add(spl[4])
+        return tuple(sorted(macs))
 
     @cached_property
     def vpn(self) -> Tuple[str]:
-        try:
-            vpns = set()
-            for ln in runln('nmcli -g NAME,TYPE connection show --active'):
-                spl = ln.split(":")
-                if spl[1] == 'vpn':
-                    vpns.add(spl[0])
-            return tuple(sorted(vpns))
-        except subprocess.CalledProcessError:
-            return tuple()
+        vpns = set()
+        for ln in runln('nmcli -g NAME,TYPE connection show --active'):
+            spl = ln.split(":")
+            if spl[1] == 'vpn':
+                vpns.add(spl[0])
+        return tuple(sorted(vpns))
 
     @cache
     def get_dns(self, vpn):
-        try:
-            for ln in runln('nmcli', 'connection', 'show', vpn):
-                spl = re.split(r":\s+", ln)
-                if spl[0] == "ipv4.dns":
-                    return tuple(spl[1].strip().split(","))
-        except subprocess.CalledProcessError:
-            return tuple()
+        for ln in runln('nmcli', 'connection', 'show', vpn):
+            spl = re.split(r":\s+", ln)
+            if spl[0] == "ipv4.dns":
+                return tuple(spl[1].strip().split(","))
 
     @cache
     def get_ip(self, dom, *dnss):
         for dns in dnss:
-            pass
+            ip = run(f"dig @{dns} +short {dom}").strip()
+            if re_ip.match(ip):
+                return ip
+        for dns in dnss:
+            ip = run(f"dig @{dns} +search +short {dom}").strip()
+            if re_ip.match(ip):
+                return ip
 
 
 def lock_file(file: TextIOWrapper):
@@ -117,17 +116,22 @@ def get_section(config_zone: int, line: str, d: Data):
 def update_hosts_file(d: Data):
     section = None
 
-    with open(TARGET, 'r') as file: #+') as file:
-        lock_file(file)  # Bloquea el archivo
+    with open(TARGET, 'r+') as file:
+        lock_file(file)
 
         lines = file.readlines()
+        old_content = "".join(lines)
         config_zone = 0
         comment = 1
 
+        last_line = ''
         new_lines = []
 
         for line in lines:
             line = line.rstrip()
+            if (len(last_line), len(line)) == (0, 0):
+                continue
+            last_line = str(line)
             if line.startswith("####"):
                 comment = 1
                 config_zone = 1 - config_zone
@@ -145,10 +149,11 @@ def update_hosts_file(d: Data):
             if config_zone == 1 and line.startswith("#") and comment == 0:
                 new_line = line[1:].lstrip()
                 if section and section[0] == "VPN_DNS":
-                    m = re_ip.search(new_line)
+                    m = re_ip_line.search(new_line)
                     if m:
-                        new_ip = d.get_ip(m.group(1), d.get_dns(section[1]))
-
+                        new_ip = d.get_ip(m.group(1), *d.get_dns(section[1]))
+                        if new_ip:
+                            new_line = new_ip + " " + new_line.split(None, 1)[1]
                 new_lines.append(new_line)
                 continue
 
@@ -158,12 +163,14 @@ def update_hosts_file(d: Data):
 
             new_lines.append(line)
 
-        #file.seek(0)
-        #file.writelines("\n".join(new_lines))
-        #file.truncate()
+        new_content = ("\n".join(new_lines)).strip()+"\n\n"
+        if old_content != new_content:
+            print(f"# {TARGET} changed")
+            file.seek(0)
+            file.write(new_content)
+            file.truncate()
 
-        unlock_file(file)  # Libera el archivo después de actualizar
-    print("\n".join(new_lines))
+        unlock_file(file)
 
 
 def create_symlinks(script_path):
@@ -191,14 +198,14 @@ def create_symlinks(script_path):
 
 
 if __name__ == "__main__":
+    if os.geteuid() != 0:
+        print("This script must be run as root.")
+        print("Please execute the script using 'sudo' or as the root user.")
+        sys.exit(1)
+
     if len(sys.argv) > 1 and sys.argv[1] == "--install":
         create_symlinks(__file__)
         sys.exit(0)
 
     d = Data()
-    print("ssid", *d.ssid)
-    print("default_route", *d.default_route)
-    print("mac", *d.mac)
-    for vpn in d.vpn:
-        print("vpn", vpn, d.get_dns(vpn))
     update_hosts_file(d)
