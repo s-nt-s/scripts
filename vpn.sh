@@ -27,7 +27,11 @@ esac
 done
 
 if [ -z "$VPN" ]; then
-    VPN=$(nmcli con | grep " vpn " | cut -d' ' -f1 | head -n 1)
+    VPN=$(LANG=en_US.UTF-8 nmcli -t -f NAME,TYPE,TIMESTAMP-REAL connection show | grep ':vpn:' | while IFS=: read -r name type timestamp; do
+        tm=$(echo "$timestamp" | sed 's|\\||g')
+        epoch=$(date -d "$tm" +%s)
+        echo "$epoch:$name"
+    done | sort -t ':' -k1 -r | cut -d ':' -f2- | head -n 1)
     if [ -z "$VPN" ]; then
         echo "VPN no encontrada"
         echo "$ nmcli con:"
@@ -35,7 +39,8 @@ if [ -z "$VPN" ]; then
         exit 1
     fi
 else
-    if ! nmcli con | grep " vpn " | cut -d' ' -f1 | grep -q "$VPN"; then
+    OK=$(nmcli -t -f TYPE,NAME connection show | grep -F "vpn:$VPN")
+    if [ -z "$OK" ]; then
         echo "VPN $VPN no encontrada"
         echo "$ nmcli con:"
         nmcli con
