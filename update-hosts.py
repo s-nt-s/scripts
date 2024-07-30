@@ -37,7 +37,9 @@ def runln(*args):
 class Data:
     @cached_property
     def ssid(self) -> Tuple[str]:
-        return tuple(sorted(run('iwgetid -r').strip().split()))
+        r = tuple(sorted(run('iwgetid -r').strip().split()))
+        print(*r)
+        return r
 
     @cached_property
     def default_route(self) -> Tuple[str]:
@@ -46,16 +48,21 @@ class Data:
             spl = ln.split()
             if spl[0] == "default":
                 ips_route.add(spl[2])
-        return tuple(sorted(ips_route))
+        r = tuple(sorted(ips_route))
+        print(*r)
+        return r
 
     @cached_property
     def mac(self) -> Tuple[str]:
+        df = tuple(self.default_route)
         macs = set()
         for ln in runln('ip neigh'):
             spl = ln.split()
-            if spl[0] in self.default_route:
+            if spl[0] in df:
                 macs.add(spl[4])
-        return tuple(sorted(macs))
+        r = tuple(sorted(macs))
+        print(*r)
+        return r
 
     @cached_property
     def vpn(self) -> Tuple[str]:
@@ -64,25 +71,31 @@ class Data:
             spl = ln.split(":")
             if spl[1] == 'vpn':
                 vpns.add(spl[0])
-        return tuple(sorted(vpns))
+        r = tuple(sorted(vpns))
+        print(*r)
+        return r
 
     @cache
     def get_dns(self, vpn):
         for ln in runln('nmcli', 'connection', 'show', vpn):
             spl = re.split(r":\s+", ln)
             if spl[0] == "ipv4.dns":
-                return tuple(spl[1].strip().split(","))
+                r = tuple(spl[1].strip().split(","))
+                print(*r)
+                return r
 
     @cache
     def get_ip(self, dom, *dnss):
         for dns in dnss:
-            ip = run(f"dig @{dns} +short {dom}").strip()
-            if re_ip.match(ip):
-                return ip
+            for ip in runln(f"dig @{dns} +short {dom}"):
+                if re_ip.match(ip):
+                    print(ip)
+                    return ip
         for dns in dnss:
-            ip = run(f"dig @{dns} +search +short {dom}").strip()
-            if re_ip.match(ip):
-                return ip
+            for ip in runln(f"dig @{dns} +search +short {dom}"):
+                if re_ip.match(ip):
+                    print(ip)
+                    return ip
 
 
 def lock_file(file: TextIOWrapper):
@@ -141,6 +154,7 @@ def update_hosts_file(d: Data):
             is_section = get_section(config_zone, line, d)
 
             if is_section is not None:
+                print("# section ", is_section)
                 section = tuple(is_section)
                 comment = 0
                 new_lines.append(line)
@@ -169,6 +183,8 @@ def update_hosts_file(d: Data):
             file.seek(0)
             file.write(new_content)
             file.truncate()
+        else:
+            print(f"# Nothing to do")
 
         unlock_file(file)
 
