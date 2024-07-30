@@ -26,35 +26,52 @@ case $key in
 esac
 done
 
-if [ -z "$VPN" ]; then
-    VPN=$(LANG=en_US.UTF-8 nmcli -t -f NAME,TYPE,TIMESTAMP-REAL connection show | grep ':vpn:' | while IFS=: read -r name type timestamp; do
+vpn_command() {
+    LANG=en_US.UTF-8 nmcli -t -f NAME,TYPE,TIMESTAMP-REAL connection show | \
+    grep ':vpn:' | \
+    while IFS=: read -r name type timestamp; do
         tm=$(echo "$timestamp" | sed 's|\\||g')
         epoch=$(date -d "$tm" +%s)
         echo "$epoch:$name"
-    done | sort -t ':' -k1 -r | cut -d ':' -f2- | head -n 1)
-    if [ -z "$VPN" ]; then
-        echo "VPN no encontrada"
-        echo "$ nmcli con:"
-        nmcli con
-        exit 1
-    fi
-else
-    OK=$(nmcli -t -f TYPE,NAME connection show | grep -F "vpn:$VPN")
-    if [ -z "$OK" ]; then
-        echo "VPN $VPN no encontrada"
-        echo "$ nmcli con:"
-        nmcli con
-        exit 1
-    fi
+    done | \
+    sort -t ':' -k1 -r | \
+    cut -d ':' -f2-
+}
+
+declare -a VPNS
+
+while IFS= read -r line; do
+    VPNS+=("$line")
+done < <(vpn_command)
+
+if [ ${#VPNS[@]} -eq 0 ]; then
+    echo "No hay VPNs"
+    exit 1
 fi
-ST=$(nmcli con | grep " vpn " | sed 's/  */ /g' | grep -E "^${VPN} " | cut -d' ' -f4)
-if [ $P_ON -eq 1 ] && [ "$ST" != "--" ]; then
+
+if [ -z "$VPN" ]; then
+    VPN="${VPNS[0]}"
+elif ! echo "${VPNS[@]}" | grep -q -F "$VPN"; then
+    VPN=""
+fi
+
+if [ -z "$VPN" ]; then
+    echo "VPN no encontrada"
+    echo "VPNs disponibles:"
+    for v in "${VPNS[@]}"; do
+        echo "  $v"
+    done
+    exit 1
+fi
+
+DVC=$(nmcli -t -f DEVICE,TYPE,NAME connection show | grep -E ":vpn:${VPN}$" | cut -d':' -f1)
+if [ $P_ON -eq 1 ] && [ ! -z "$DVC" ]; then
     exit 0
 fi
-if [ $P_OFF -eq 1 ] && [ "$ST" == "--" ]; then
+if [ $P_OFF -eq 1 ] && [ -z "$DVC" ]; then
     exit 0
 fi
-if [ "$ST" == "--" ]; then
+if [ -z "$DVC" ]; then
     echo "$VPN off -> on"
     nmcli con up id "$VPN"
 else
