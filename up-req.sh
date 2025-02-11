@@ -13,13 +13,14 @@ fi
 NOTFOUND=()
 
 while read -r lib; do
-    VS=$(pip show "$lib" 2>/dev/null | grep -E "^Version: " | awk '{print $2}')
+    l=$(echo "$lib" | sed -e 's/\[.*//g' )
+    VS=$(pip show "$l" 2>/dev/null | grep -E "^Version: " | awk '{print $2}')
     if [ -n "$VS" ]; then
         echo "$lib==$VS"
     else
         NOTFOUND+=("$lib")
     fi
-done < <(sed -e 's/[=~<> ].*//g' -e 's/^\s*|\s*$//g' -e '/^\s*$/d' "$RQ" | sort | uniq)
+done < <(sed -e 's/[=~<> ].*//g' -e 's/^\s*|\s*$//g' -e '/^\s*$/d' -e '/^#/d' "$RQ" | sort | uniq)
 
 if [ ${#NOTFOUND[@]} -gt 0 ]; then
     echo "# The following packages were not found:"
