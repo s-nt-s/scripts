@@ -19,7 +19,7 @@ while read -r lib; do
     else
         NOTFOUND+=("$lib")
     fi
-done < <(sed 's/[=~<>].*//g' "$RQ" | sort | uniq)
+done < <(sed -e 's/[=~<> ].*//g' -e 's/^\s*|\s*$//g' -e '/^\s*$/d' "$RQ" | sort | uniq)
 
 if [ ${#NOTFOUND[@]} -gt 0 ]; then
     echo "# The following packages were not found:"
