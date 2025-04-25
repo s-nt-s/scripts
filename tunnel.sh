@@ -62,5 +62,5 @@ if [ -e "$CNT" ]; then
   exe ssh -S "$CNT" -O exit $TG
 else
   echo "# $TN va a ser iniciado"
-  exe ssh -M -S "$CNT" $LN
+  exe ssh -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
 fi
