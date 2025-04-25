@@ -1,0 +1,19 @@
+# /mnt/onboard/.adds/nm/config
+
+experimental:menu_main_15505_label:Atajos
+
+menu_item:main:KOReader:cmd_spawn:quiet:exec /mnt/onboard/.adds/koreader/koreader.sh
+menu_item:main:Artículos de Pocket:nickel_open:library:pocket
+menu_item:main:Navegador Web:nickel_browser:
+menu_item:main:Refrescar Biblioteca:nickel_misc:rescan_books_full
+menu_item:main:Dirección IP:cmd_output:500:/sbin/ifconfig | /usr/bin/awk '/inet addr/{print substr($2,6)}'
+menu_item:main:Modo USB:nickel_misc:force_usb_connection
+
+menu_item :main : SSH (toggle) :cmd_output :1000:sh /mnt/onboard/.adds/koreader/scripts/mydropbear.sh 22
+
+menu_item:main:Reiniciar:nickel_misc:home
+  chain_success:power:reboot
+
+menu_item:reader:Modo oscuro:nickel_setting:toggle:dark_mode
+
+menu_item:selection_search:Buscar en DuckDuckGo :nickel_browser :modal:https://duckduckgo.com/?q={1|S|%}
