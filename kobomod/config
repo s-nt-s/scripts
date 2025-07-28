@@ -12,6 +12,8 @@ menu_item :main : SSH (toggle) :cmd_output :1000:sh /mnt/onboard/.adds/koreader/
 menu_item:main:Reiniciar:nickel_misc:home
   chain_success:power:reboot
 
-menu_item:reader:Modo oscuro:nickel_setting:toggle:dark_mode
 
 menu_item:selection_search:Buscar en DuckDuckGo :nickel_browser :modal:https://duckduckgo.com/?q={1|S|%}
+
+menu_item:reader:Modo oscuro:nickel_setting:toggle:dark_mode
+menu_item:reader:Apagar WiFi:nickel_wifi:disable
