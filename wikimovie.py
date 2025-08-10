@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from wikibaseintegrator.datatypes import ExternalID
-from wikibaseintegrator import WikibaseIntegrator
+from wikibaseintegrator import WikibaseIntegrator, wbi_login
 
 from textwrap import dedent
 import logging
@@ -16,6 +16,7 @@ from functools import wraps
 from requests import JSONDecodeError
 from os.path import realpath, dirname
 import subprocess
+from os import environ
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +93,19 @@ class WikiApi:
         return self.__last_query
 
     @cached_property
+    def login(self):
+        user_pass = environ.get("WIKI_USR_PSW")
+        if user_pass is None:
+            return None
+        u, p = user_pass.split()
+        return wbi_login.Login(
+            user=u,
+            password=p
+        )
+
+    @cached_property
     def wbi(self):
-        wbi = WikibaseIntegrator()
-        return wbi
+        return WikibaseIntegrator(login=self.login)
 
     def get_property(self, qid: str, pid: str) -> tuple[str, ...]:
         qid = qid.rsplit("/", 1)[-1]
@@ -105,7 +116,7 @@ class WikiApi:
         item = self.wbi.item.get(entity_id=qid)
         statement = ExternalID(prop_nr=prop, value=str(value))
         item.claims.add(statement)
-        item.write(allow_anonymous=True)
+        item.write(allow_anonymous=self.login is None)
         return item.id
 
     def create_item(self, data: dict) -> str:
@@ -118,7 +129,7 @@ class WikiApi:
         item = self.wbi.item.new()
         for c in claims:
             item.claims.add(c)
-        new_item = item.write(allow_anonymous=True)
+        new_item = item.write(allow_anonymous=self.login is None)
         return new_item.id
 
     def query_sparql(self, query: str) -> dict[str, Any]:
