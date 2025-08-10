@@ -14,24 +14,23 @@ import re
 from time import sleep
 from functools import wraps
 from requests import JSONDecodeError
-from os.path import realpath, dirname
-import subprocess
-from os import environ
+from os.path import expanduser, isfile
+import json
 
 logger = logging.getLogger(__name__)
 
 logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
 
 
-def get_git_user_email():
-    try:
-        email = subprocess.check_output(
-            ["git", "-C", dirname(realpath(__file__)), "config", "user.email"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-        return email
-    except subprocess.CalledProcessError:
-        return None
+def get_config(file: str):
+    path = expanduser(file)
+    if not isfile(path):
+        sys.exit(f"{file} no existe")
+    with open(path, "r") as f:
+        obj = json.load(f)
+        if not isinstance(obj, dict):
+            raise ValueError(f"{file} ha de ser un diccionario json")
+        return obj
 
 
 def _is_empty(x: Any):
@@ -80,11 +79,12 @@ class WikiApi:
     WDT_IMDB = 'P345'
     WDT_FA = 'P480'
 
-    def __init__(self, user_mail: str):
+    def __init__(self, config: dict):
+        self.__c = config
         self.__s = requests.Session()
         headers = {"Accept": "application/sparql-results+json"}
-        if user_mail:
-            headers["User-Agent"] = f'WikiDataBoot/0.0 (http://localhost; {user_mail})'
+        if self.__c .get('mail'):
+            headers["User-Agent"] = f'WikiDataBoot/0.0 (http://localhost; {self.__c["mail"]})'
         self.__s.headers.update(headers)
         self.__last_query = None
 
@@ -94,13 +94,11 @@ class WikiApi:
 
     @cached_property
     def login(self):
-        user_pass = environ.get("WIKI_USR_PSW")
-        if user_pass is None:
+        if None in (self.__c.get("user"), self.__c.get("password")):
             return None
-        u, p = user_pass.split()
         return wbi_login.Login(
-            user=u,
-            password=p
+            user=self.__c["user"],
+            password=self.__c["password"]
         )
 
     @cached_property
@@ -248,22 +246,20 @@ if __name__ == "__main__":
         description='Asocia ids de IMDb con ids de FilmAffinity a traves de WikiData'
     )
     parser.add_argument(
-        '--user-mail',
+        '--config',
         type=str,
-        help='Mail de contacto para las llamadas sparql ver https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy',
-        default=get_git_user_email()
+        help='fichero de configuración',
+        default='~/wikidata.json'
     )
-
     parser.add_argument("ids", nargs='+', help="IDs de IMDb y FilmAffinity")
     pargs = parser.parse_args()
     ids = get_ids(pargs.ids)
     if ids is None:
         sys.exit("Los ids no cumplen el formato: " + ", ".join(pargs.ids))
+    config = get_config(pargs.config)
 
     id_imdb, id_filmaffinity = ids
-    WIKI = WikiApi(
-        user_mail=pargs.user_mail
-    )
+    WIKI = WikiApi(config)
 
     qid_imdb = WIKI.get_qid_by_property(WIKI.WDT_IMDB, id_imdb)
     qid_film = WIKI.get_qid_by_property(WIKI.WDT_FA, id_filmaffinity)
