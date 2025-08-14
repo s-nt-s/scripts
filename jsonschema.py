@@ -48,6 +48,8 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
         schema.clear()
         schema['const'] = None
         return schema
+    if typ == 'boolean':
+        return schema
     if len(vals) <= threshold:
         if hasNull:
             vals.insert(0, None)
