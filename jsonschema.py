@@ -53,10 +53,9 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
             vals.insert(0, None)
         schema['enum'] = vals
         return schema
-    if typ == 'boolean' and len(vals) == 1:
-        schema['enum'] = vals
-    if typ == 'boolean':
-        schema['enum'] = [True, False]
+    if typ == 'integer':
+        schema['minimum'] = vals[0]
+        schema['maximum'] = vals[-1]
     if typ == 'string':
         lvls = sorted(map(len, vals))
         schema['minLength'] = lvls[0]
