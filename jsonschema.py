@@ -37,7 +37,7 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
         schema['minItems'] = min(lns)
         schema['maxItems'] = max(lns)
         return schema
-    if typ not in ('string', 'integer', 'boolean'):
+    if typ not in ('string', 'integer', 'number', 'boolean'):
         return schema
     vals = sorted(set(obj))
     if len(vals) == 1 and not hasNull:
@@ -55,7 +55,7 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
             vals.insert(0, None)
         schema['enum'] = vals
         return schema
-    if typ == 'integer':
+    if typ in ('integer', 'number'):
         schema['minimum'] = vals[0]
         schema['maximum'] = vals[-1]
     if typ == 'string':
