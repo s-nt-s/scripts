@@ -45,6 +45,11 @@ exe() {
   echo "\$ $CM"
   "$@"
 }
+exe_nohup() {
+  CM=$(echo "$@" | sed "s|${HOME}/|~/|g")
+  echo "\$ $CM"
+  nohup "$@" >/dev/null 2>&1 &
+}
 
 LN=$(echo "${LN#*: }" | sed 's/\s\s*/ /g' | sed 's/^\s*|\s*$//g')
 TG=$(echo "$LN" | rev | cut -d' ' -f1 | rev)
@@ -62,5 +67,9 @@ if [ -e "$CNT" ]; then
   exe ssh -S "$CNT" -O exit $TG
 else
   echo "# $TN va a ser iniciado"
-  exe ssh -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
+  if command -v autossh >/dev/null 2>&1; then
+      exe_nohup autossh -M 0 -o ControlMaster=yes -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
+  else
+      exe ssh -f -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
+  fi
 fi
