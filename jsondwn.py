@@ -87,9 +87,9 @@ def main():
             json.dump(obj, f, indent=2)
 
         if ntm is None:
-            print(frmt.format(abs(i)), f"{url} -> {rel}")
+            print(frmt.format(abs(i)), f"{lk} -> {rel}")
         else:
-            print(frmt.format(abs(i)), f"{url} -> {rel} (time={obj[TIME_FIELD]})")
+            print(frmt.format(abs(i)), f"{lk} -> {rel} (time={obj[TIME_FIELD]})")
             utime(pth, (ntm, ntm))
 
 
