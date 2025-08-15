@@ -68,7 +68,7 @@ def main():
     args = parser.parse_args()
 
     url = str(args.url).rstrip("/")+"/"
-    out = Path(args.output)
+    out = Path(args.out)
 
     for lk in LinkExtractor.get_links(url):
         if not lk.startswith(url) or not lk.endswith(".json"):
