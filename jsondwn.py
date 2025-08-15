@@ -62,7 +62,7 @@ class LinkExtractor(HTMLParser):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download data from a mirror")
+    parser = argparse.ArgumentParser(description="Download json from a url")
     parser.add_argument("--out", type=str, help="Local directory to save")
     parser.add_argument("url", type=str, help="URL tree")
     args = parser.parse_args()
