@@ -70,23 +70,27 @@ def main():
     url = str(args.url).rstrip("/")+"/"
     out = Path(args.out)
 
+    links: list[str] = []
     for lk in LinkExtractor.get_links(url):
-        if not lk.startswith(url) or not lk.endswith(".json"):
-            continue
+        if lk.startswith(url) and lk.endswith(".json"):
+            links.append(lk)
+
+    frmt = "[{:"+str(len(str(len(links))))+"d}]"
+    for i, lk in enumerate(links, start=-len(links)):
         obj = get_json(lk)
         ntm = to_timestamp(obj)
         rel = out / lk[len(url):]
-        abs = rel.resolve()
-        abs.parent.mkdir(parents=True, exist_ok=True)
+        pth = rel.resolve()
+        pth.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(abs, "w") as f:
+        with open(pth, "w") as f:
             json.dump(obj, f, indent=2)
 
         if ntm is None:
-            print(f"{url} -> {rel}")
+            print(frmt.format(abs(i)), f"{url} -> {rel}")
         else:
-            print(f"{url} -> {rel} (time={obj[TIME_FIELD]})")
-            utime(abs, (ntm, ntm))
+            print(frmt.format(abs(i)), f"{url} -> {rel} (time={obj[TIME_FIELD]})")
+            utime(pth, (ntm, ntm))
 
 
 if __name__ == "__main__":
