@@ -16,10 +16,28 @@ from functools import wraps
 from requests import JSONDecodeError
 from os.path import expanduser, isfile
 import json
+from requests.exceptions import HTTPError
+from requests import Response
 
 logger = logging.getLogger(__name__)
 
 logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
+
+orig_response_json = requests.models.Response.json
+
+
+def response_json(self: Response, *args, **kwargs):
+    try:
+        return orig_response_json(self, *args, **kwargs)
+    except JSONDecodeError as e:
+        if self.status_code == 200:
+            e.response = self
+            e.request = self.request
+            raise e
+        raise HTTPError(response=self, request=self.request)
+
+
+requests.models.Response.json = response_json
 
 
 def get_config(file: str):
@@ -82,10 +100,11 @@ class WikiApi:
     def __init__(self, config: dict):
         self.__c = config
         self.__s = requests.Session()
-        headers = {"Accept": "application/sparql-results+json"}
-        if self.__c .get('mail'):
-            headers["User-Agent"] = f'WikiDataBoot/0.0 (http://localhost; {self.__c["mail"]})'
-        self.__s.headers.update(headers)
+        self.__user_agent = self.__c["user-agent"]
+        self.__s.headers.update({
+            "Accept": "application/sparql-results+json",
+            "User-Agent": self.__user_agent
+        })
         self.__last_query = None
 
     @property
@@ -96,10 +115,27 @@ class WikiApi:
     def login(self):
         if None in (self.__c.get("user"), self.__c.get("password")):
             return None
-        return wbi_login.Login(
-            user=self.__c["user"],
-            password=self.__c["password"]
-        )
+        try:
+            return wbi_login.Login(
+                user=self.__c["user"],
+                password=self.__c["password"],
+                user_agent=self.__user_agent
+            )
+        except (HTTPError, JSONDecodeError) as e:
+            if e.response is None or e.response.status_code is None:
+                raise e
+            line = []
+            for k, v in dict(
+                status=e.response.status_code,
+                reason=e.response.reason,
+                text=e.response.text
+            ).items():
+                if isinstance(v, str):
+                    v = v.strip()
+                    if len(v) == 0:
+                        continue
+                line.append(f"{k}={v}")
+            raise ValueError(" ".join(line)) from e
 
     @cached_property
     def wbi(self):
