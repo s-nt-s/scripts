@@ -13,6 +13,7 @@ from os import utime
 
 TIME_FIELD = '__time__'
 
+
 def to_timestamp(s):
     if isinstance(s, dict):
         s = s.get(TIME_FIELD)
