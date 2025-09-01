@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from wikibaseintegrator.datatypes import ExternalID
-from wikibaseintegrator import WikibaseIntegrator
+from wikibaseintegrator import WikibaseIntegrator, wbi_config
 from wikibaseintegrator.wbi_login import Login, LoginError
 
 from textwrap import dedent
@@ -21,6 +21,7 @@ from requests import Response
 from unittest.mock import patch
 
 logger = logging.getLogger(__name__)
+re_sp = re.compile(r"\s+")
 
 logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
 
@@ -29,7 +30,8 @@ orig_response_json = requests.models.Response.json
 
 def login_response_json(self: Response, *args, **kwargs):
     if self.status_code == 403:
-        raise LoginError(f"{self.status_code} {self.reason} {self.text}")
+        text = re_sp.sub(r" ", self.text).strip()
+        raise LoginError(f"{self.status_code} {self.reason} {text}".strip())
     return orig_response_json(self, *args, **kwargs)
 
 
@@ -108,12 +110,19 @@ class WikiApi:
     def login(self):
         if None in (self.__c.get("user"), self.__c.get("password")):
             return None
-        with patch.object(requests.models.Response, "json", login_response_json):
-            return Login(
-                user=self.__c["user"],
-                password=self.__c["password"],
-                user_agent=self.__user_agent
-            )
+
+        def new_session():
+            s = requests.Session()
+            s.headers.update({"User-Agent": self.__user_agent})
+            return s
+
+        with patch.object(requests.Session, "json", new_session):
+            with patch.object(requests.models.Response, "json", login_response_json):
+                return Login(
+                    user=self.__c["user"],
+                    password=self.__c["password"],
+                    user_agent=self.__user_agent
+                )
 
     @cached_property
     def wbi(self):
