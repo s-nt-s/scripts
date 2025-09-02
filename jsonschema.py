@@ -33,7 +33,8 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
         for i in obj:
             lns.add(len(i))
             arr = arr + i
-        schema['items'] = _complete_schema(schema['items'], arr, threshold=threshold)
+        if 'items' in schema:
+            schema['items'] = _complete_schema(schema['items'], arr, threshold=threshold)
         schema['minItems'] = min(lns)
         schema['maxItems'] = max(lns)
         return schema
