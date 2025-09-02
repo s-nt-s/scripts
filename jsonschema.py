@@ -33,18 +33,22 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
         for i in obj:
             lns.add(len(i))
             arr = arr + i
-        if 'items' in schema:
-            schema['items'] = _complete_schema(schema['items'], arr, threshold=threshold)
         schema['minItems'] = min(lns)
         schema['maxItems'] = max(lns)
+        if 'items' in schema:
+            schema['items'] = _complete_schema(schema['items'], arr, threshold=threshold)
+        elif (schema['minItems'], schema['maxItems']) == (0, 0):
+            return {
+                "const": []
+            }
         return schema
     if typ not in ('string', 'integer', 'number', 'boolean'):
         return schema
     vals = sorted(set(obj))
     if len(vals) == 1 and not hasNull:
-        schema.clear()
-        schema['const'] = vals[0]
-        return schema
+        return {
+            "const": vals[0]
+        }
     if len(vals) == 0 and hasNull:
         schema.clear()
         schema['const'] = None
