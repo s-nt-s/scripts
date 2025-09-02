@@ -111,8 +111,8 @@ class WikiApi:
         if None in (self.__c.get("user"), self.__c.get("password")):
             return None
 
-        def new_session():
-            s = requests.Session()
+        def new_session(*args, **kwargs):
+            s = requests.Session(*args, **kwargs)
             s.headers.update({"User-Agent": self.__user_agent})
             return s
 
