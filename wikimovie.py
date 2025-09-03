@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from wikibaseintegrator.datatypes import ExternalID
-from wikibaseintegrator import WikibaseIntegrator, wbi_config
+from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_login import Login, LoginError
 
 from textwrap import dedent
@@ -116,7 +116,7 @@ class WikiApi:
             s.headers.update({"User-Agent": self.__user_agent})
             return s
 
-        with patch.object(requests.Session, "json", new_session):
+        with patch("requests.Session", return_value=new_session):
             with patch.object(requests.models.Response, "json", login_response_json):
                 return Login(
                     user=self.__c["user"],
