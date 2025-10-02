@@ -4,7 +4,8 @@ import argparse
 import sys
 
 from wikibaseintegrator.datatypes import ExternalID
-from wikibaseintegrator import WikibaseIntegrator, wbi_login
+from wikibaseintegrator import WikibaseIntegrator
+from wikibaseintegrator.wbi_login import Login, LoginError
 
 from textwrap import dedent
 import logging
@@ -16,10 +17,22 @@ from functools import wraps
 from requests import JSONDecodeError
 from os.path import expanduser, isfile
 import json
+from requests import Response
+from unittest.mock import patch
 
 logger = logging.getLogger(__name__)
+re_sp = re.compile(r"\s+")
 
 logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
+
+orig_response_json = requests.models.Response.json
+
+
+def login_response_json(self: Response, *args, **kwargs):
+    if self.status_code == 403:
+        text = re_sp.sub(r" ", self.text).strip()
+        raise LoginError(f"{self.status_code} {self.reason} {text}".strip())
+    return orig_response_json(self, *args, **kwargs)
 
 
 def get_config(file: str):
@@ -82,10 +95,11 @@ class WikiApi:
     def __init__(self, config: dict):
         self.__c = config
         self.__s = requests.Session()
-        headers = {"Accept": "application/sparql-results+json"}
-        if self.__c .get('mail'):
-            headers["User-Agent"] = f'WikiDataBoot/0.0 (http://localhost; {self.__c["mail"]})'
-        self.__s.headers.update(headers)
+        self.__user_agent = self.__c["user-agent"]
+        self.__s.headers.update({
+            "Accept": "application/sparql-results+json",
+            "User-Agent": self.__user_agent
+        })
         self.__last_query = None
 
     @property
@@ -96,10 +110,19 @@ class WikiApi:
     def login(self):
         if None in (self.__c.get("user"), self.__c.get("password")):
             return None
-        return wbi_login.Login(
-            user=self.__c["user"],
-            password=self.__c["password"]
-        )
+
+        def new_session(*args, **kwargs):
+            s = requests.Session(*args, **kwargs)
+            s.headers.update({"User-Agent": self.__user_agent})
+            return s
+
+        with patch("requests.Session", return_value=new_session):
+            with patch.object(requests.models.Response, "json", login_response_json):
+                return Login(
+                    user=self.__c["user"],
+                    password=self.__c["password"],
+                    user_agent=self.__user_agent
+                )
 
     @cached_property
     def wbi(self):
