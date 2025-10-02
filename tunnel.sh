@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 DIR=~/.ssh/tunnels
 CNF="$DIR/config"
@@ -22,9 +23,9 @@ if [ "$1" == "start" ] || [ "$1" == "stop" ]; then
 fi
 
 if [ -z "$1" ]; then
-  echo "Debe pasar como argumento un nombre de tunel registrado en $LB_CNF"
+  echo "Debe pasar como argumento un nombre de túnel registrado en $LB_CNF"
   if [ ! -z "$TNLS" ]; then
-    echo "Tuneles disponibles: $TNLS"
+    echo "Túneles disponibles: $TNLS"
   fi
   exit 1
 fi
@@ -35,7 +36,7 @@ LN=$(grep "^${TN}: " "$CNF")
 if [ -z "$LN" ]; then
   echo "$TN no encontrado en $LB_CNF"
   if [ ! -z "$TNLS" ]; then
-    echo "Tuneles disponibles: $TNLS"
+    echo "Túneles disponibles: $TNLS"
   fi
   exit 1
 fi
@@ -55,21 +56,44 @@ LN=$(echo "${LN#*: }" | sed 's/\s\s*/ /g' | sed 's/^\s*|\s*$//g')
 TG=$(echo "$LN" | rev | cut -d' ' -f1 | rev)
 
 CNT="$DIR/$TN.control"
+MSH="$DIR/$TN.monitor.sh"
+LOG="$DIR/$TN.log"
 if [ "$MODE" == "start" ] && [ -e "$CNT" ]; then
+    echo "# $TN ya está iniciado"
     exit 0
 fi
 if [ "$MODE" == "stop" ] && [ ! -e "$CNT" ]; then
+    echo "# $TN ya está finalizado"
     exit 0
 fi
 
 if [ -e "$CNT" ]; then
   echo "# $TN va a ser finalizado"
   exe ssh -S "$CNT" -O exit $TG
+  if [ -f "$MSH" ]; then
+    pkill -f "$MSH"
+    rm -f "$MSH" "$LOG"
+  fi
 else
   echo "# $TN va a ser iniciado"
-  if command -v autossh >/dev/null 2>&1; then
-      exe_nohup autossh -M 0 -o ControlMaster=yes -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
+  cat > "$MSH" <<EOF
+#!/bin/bash
+set -e
+sec=\$(date +%S)
+wait=\$((60 - sec))
+sleep \$wait
+while true; do
+  sleep 30
+  if ssh -S "$CNT" -O check "$TG" >/dev/null 2>&1; then
+    echo "\$(date '+%Y-%m-%d %H:%M:%S') $TN activo"
   else
-      exe ssh -f -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S "$CNT" $LN
+    echo "\$(date '+%Y-%m-%d %H:%M:%S') $TN caído"
+    ssh -f -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S $CNT $LN
   fi
+done
+EOF
+  CMD=$(grep -Eoh "^\s+ssh\s+.*" "$MSH" | sed 's/^\s*//')
+  exe $CMD
+  chmod +x "$MSH"
+  nohup "$MSH" >> "$LOG" 2>&1 &
 fi
