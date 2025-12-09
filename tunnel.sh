@@ -79,15 +79,16 @@ else
   cat > "$MSH" <<EOF
 #!/bin/bash
 set -e
-sec=\$(date +%S)
+sec=\$(date +%S | sed 's/^0//')
 wait=\$((60 - sec))
 sleep \$wait
 while true; do
-  sleep 30
+  sleep 60
+  DT_NOW="\$(date '+%Y-%m-%d %H:%M')"
   if ssh -S "$CNT" -O check "$TG" >/dev/null 2>&1; then
-    echo "\$(date '+%Y-%m-%d %H:%M:%S') $TN activo"
+    echo "[OK] \$DT_NOW $TN activo"
   else
-    echo "\$(date '+%Y-%m-%d %H:%M:%S') $TN caído"
+    echo "[KO] \$DT_NOW $TN caído"
     ssh -f -M -o ControlPersist=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -S $CNT $LN
   fi
 done
