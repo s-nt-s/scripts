@@ -10,8 +10,9 @@ import sys
 import bs4
 
 import urllib3
-import requests
+from requests import Session
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import requests
 
 urllib3.disable_warnings()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -38,16 +39,27 @@ if not r or len(r) == 0:
     con.commit()
 
 
+S = Session()
+S.headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:54.0) Gecko/20100101 Firefox/54.0',
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Expires": "Thu, 01 Jan 1970 00:00:00 GMT",
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+}
 def get(url, selector):
-    global msg
     try:
-        headers = {'Accept-Encoding': None}
-        response = requests.get(url, headers=headers, verify=False)
+        response = S.get(url, verify=False)
         soup = bs4.BeautifulSoup(response.text, "html.parser")
-        return soup.select(selector)
+        return soup, soup.select(selector)
     except Exception as e:
         print("\nERROR consultando: " + url + "\n" + str(e) + "\n")
-    return None
+    return None, None
 
 
 def send(msg):
@@ -59,16 +71,19 @@ cur = con.cursor()
 cur.execute('SELECT URL, SELECTOR, TXT from WEBS')
 webs = cur.fetchall()
 for web in webs:
-    nodes = get(web[0], web[1])
-    if nodes and len(nodes) > 0:
-        txt = ''
-        for node in nodes:
-            txt = txt + " " + node.get_text()
-        txt = (sp.sub(" ", txt)).strip()
-        if txt != web[2]:
-            print(web[0])
-            c = con.cursor()
-            c.execute("update WEBS set TXT=?, FCH=? where URL=?",
-                      (txt, datetime.datetime.now(), web[0]))
-            c.close()
-            con.commit()
+    soup, nodes = get(web[0], web[1])
+    if nodes is None or len(nodes) == 0:
+        print(f"{web[1]} no enconttrado en {web[0]} {soup}")
+        continue
+    txt = ''
+    for node in nodes:
+        txt = txt + " " + node.get_text()
+    txt = (sp.sub(" ", txt)).strip()
+    if txt == web[2]:
+        continue
+    print(web[0])
+    c = con.cursor()
+    c.execute("update WEBS set TXT=?, FCH=? where URL=?",
+        (txt, datetime.datetime.now(), web[0]))
+    c.close()
+    con.commit()
