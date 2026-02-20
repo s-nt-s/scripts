@@ -83,6 +83,7 @@ class Upnp:
         else:
             self.del_port(r)
 
+
 if __name__ == "__main__":
     u = Upnp()
     r = Rule()
@@ -104,7 +105,7 @@ if __name__ == "__main__":
         u.add_rule(r)
 
     ports = sorted(u.get_ports(), key=lambda x: (x.port, x.protocol))
-    width={k: 0 for k in Rule().__dict__.keys()}
+    width = {k: 0 for k in Rule().__dict__.keys()}
     for p in ports:
         for k in width.keys():
             v = p.__dict__[k]
