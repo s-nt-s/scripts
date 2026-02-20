@@ -12,6 +12,9 @@ def _complete_schema(schema: dict, obj: list, threshold=60):
     obj = [o for o in obj if o is not None]
     if len(obj) == 0:
         return schema
+    anyOf = schema.get('anyOf')
+    if isinstance(anyOf, list):
+        return schema
     schema_type = schema['type']
     typ = None
     hasNull = None
