@@ -28,27 +28,27 @@ class Rule:
             self.dest = self.port
         if self.addr is None:
             self.addr = addr
-        if r.description is None:
-            r.description = 'upnp.py {}'.format(r.port)
+        if self.description is None:
+            self.description = 'upnp.py {}'.format(r.port)
         else:
-            self.description.strip()
+            self.description = self.description.strip()
 
 class Upnp:
     def __init__(self):
-        self.u = miniupnpc.UPnP()
-        self.u.discoverdelay = 200
-        self.u.discover()
-        self.u.selectigd()
+        self.__u = miniupnpc.UPnP()
+        self.__u.discoverdelay = 200
+        self.__u.discover()
+        self.__u.selectigd()
 
     @property
     def lanaddr(self):
-        return self.u.lanaddr
+        return self.__u.lanaddr
 
     def get_ports(self):
         i = -1
         while True:
             i += 1
-            p = self.u.getgenericportmapping(i)
+            p = self.__u.getgenericportmapping(i)
             if p is None:
                 break
             port, protocol, (toAddr, toPort), desc, x, y, z = p
@@ -62,7 +62,7 @@ class Upnp:
 
     def add_port(self, r):
         r.fix(self.lanaddr)
-        self.u.addportmapping(
+        self.__u.addportmapping(
             r.port,
             r.protocol,
             r.addr,
@@ -75,7 +75,7 @@ class Upnp:
 
     def del_port(self, r):
         r.fix(self.lanaddr)
-        self.u.deleteportmapping(abs(r.port), r.protocol)
+        self.__u.deleteportmapping(abs(r.port), r.protocol)
 
     def add_rule(self, r):
         if r.port > 0:
