@@ -22,8 +22,10 @@ if [ ! -z "$PK" ]; then
 fi
 
 echo "Limpiando paquetes almacenados en la cache ..."
+if command -v aptitude &> /dev/null; then
 aptitude -y autoclean
 aptitude -y clean
+fi
 apt clean -y
 apt autoclean -y
 apt autoremove -y
