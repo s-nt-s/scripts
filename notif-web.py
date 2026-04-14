@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import datetime
+from datetime import datetime
 import os
 import re
 import sqlite3
@@ -29,11 +29,11 @@ c.close()
 if not r or len(r) == 0:
     c = con.cursor()
     c.execute('''CREATE TABLE WEBS (
-		URL TEXT PRIMARY KEY NOT NULL,
-		SELECTOR TEXT NOT NULL,
-		TXT TEXT,
-		FCH timestamp
-	)''')
+        URL TEXT PRIMARY KEY NOT NULL,
+        SELECTOR TEXT NOT NULL,
+        TXT TEXT,
+        FCH timestamp
+    )''')
     c.close()
     con.commit()
 
@@ -51,6 +51,8 @@ S.headers = {
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
 }
+
+
 def get(url, selector):
     try:
         response = S.get(url, verify=False)
@@ -61,18 +63,13 @@ def get(url, selector):
     return None, None
 
 
-def send(msg):
-    cmd = "sudo say \"" + msg + "\" &"
-    print(cmd)
-    call(cmd, shell=True)
-
 cur = con.cursor()
 cur.execute('SELECT URL, SELECTOR, TXT from WEBS')
 webs = cur.fetchall()
 for web in webs:
     soup, nodes = get(web[0], web[1])
     if nodes is None or len(nodes) == 0:
-        print(f"{web[1]} no enconttrado en {web[0]} {soup}")
+        print(f"{web[1]} no encontrado en {web[0]} {soup}")
         continue
     txt = ''
     for node in nodes:
@@ -82,7 +79,9 @@ for web in webs:
         continue
     print(web[0])
     c = con.cursor()
-    c.execute("update WEBS set TXT=?, FCH=? where URL=?",
-        (txt, datetime.datetime.now(), web[0]))
+    c.execute(
+        "update WEBS set TXT=?, FCH=? where URL=?",
+        (txt, datetime.now().isoformat(sep=" "), web[0])
+    )
     c.close()
     con.commit()
