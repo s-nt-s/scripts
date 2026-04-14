@@ -18,9 +18,9 @@ urllib3.disable_warnings()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-os.chdir(os.path.dirname(sys.argv[0]))
+os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
 
-sp = re.compile("\s+", re.MULTILINE | re.UNICODE)
+sp = re.compile(r"\s+", re.MULTILINE | re.UNICODE)
 con = sqlite3.connect(".notif-web.db", detect_types=sqlite3.PARSE_DECLTYPES)
 
 c = con.cursor()
