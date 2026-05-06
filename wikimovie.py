@@ -137,9 +137,11 @@ class WikiApi:
         qid = qid.rsplit("/", 1)[-1]
         return self.get_tuple(f'wd:{qid} wdt:{pid} ?field .')
 
-    def set_property(self, qid: str, prop: str, value: str):
+    def set_property(self, qid: str, prop: str, value: str) -> str:
         qid = qid.rsplit("/", 1)[-1]
         item = self.wbi.item.get(entity_id=qid)
+        if item.id != qid:
+            raise ValueError(f"{item.id} != {qid}")
         statement = ExternalID(prop_nr=prop, value=str(value))
         item.claims.add(statement)
         item.write(allow_anonymous=self.login is None)
