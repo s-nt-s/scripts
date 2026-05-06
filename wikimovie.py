@@ -9,7 +9,7 @@ from wikibaseintegrator.wbi_login import Login, LoginError
 
 from textwrap import dedent
 import logging
-from typing import Any
+from typing import Any, NamedTuple
 from functools import cache, cached_property
 import re
 from time import sleep
@@ -21,9 +21,14 @@ from requests import Response
 from unittest.mock import patch
 
 logger = logging.getLogger(__name__)
+logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
 re_sp = re.compile(r"\s+")
 
-logging.getLogger("wikibaseintegrator").setLevel(logging.ERROR)
+
+class IdMovie(NamedTuple):
+    imdb: str
+    filmaffinity: int
+
 
 orig_response_json = requests.models.Response.json
 
@@ -243,25 +248,79 @@ class WikiApi:
 
 
 def get_ids(arr: list[str]):
-    if len(arr) != 2:
-        return None
-
-    id_filmaffinity: int = None
-    id_imdb: str = None
+    arr_imdb: list[str] = []
+    arr_film: list[int] = []
 
     for i in arr:
         i = re.sub(r"^https://www.filmaffinity.com.*/film(\d+).html$", r"\1", i)
         i = re.sub(r"^https://www.imdb.com/.*/(tt\d+).*", r"\1", i)
         i = re.sub(r"^film(\d+)$", r"\1", i)
-        if id_filmaffinity is None and i.isdigit():
-            id_filmaffinity = int(i)
-        if id_imdb is None and re.match(r"^tt\d+$", i):
-            id_imdb = i
+        if re.match(r"^tt\d+$", i) and i not in arr_imdb:
+            arr_imdb.append(i)
+        if i.isdigit():
+            x = int(i)
+            if x not in arr_film:
+                arr_film.append(x)
+            continue
 
-    if None in (id_imdb, id_filmaffinity):
+    l1, l2 = map(len, arr_imdb, arr_film)
+    if l1 != l2 or 0 in (l1, l2):
         return None
 
-    return id_imdb, id_filmaffinity
+    ids: set[IdMovie] = set()
+    for id_imdb, id_film in zip(arr_imdb, arr_film):
+        ids.add(IdMovie(
+            imdb=id_imdb,
+            filmaffinity=id_film
+        ))
+
+    return tuple(sorted(ids))
+
+
+def set_id(WIKI: WikiApi, id: IdMovie):
+    qid_imdb = WIKI.get_qid_by_property(WIKI.WDT_IMDB, id.imdb)
+    qid_film = WIKI.get_qid_by_property(WIKI.WDT_FA, id.filmaffinity)
+
+    qid_common = set(qid_imdb).intersection(qid_film)
+    gid_need_imdb = set(qid_film).difference(qid_imdb)
+    qid_need_film = set(qid_imdb).difference(qid_film)
+
+    if len(qid_common):
+        for qid in qid_common:
+            print(f"[OK] {qid} ya relaciona {id.imdb} con {id.filmaffinity}")
+        return True
+
+    ko = False
+    for qid in gid_need_imdb:
+        for v in WIKI.get_property(qid, WIKI.WDT_IMDB):
+            print(f"[KO] {qid} ya relaciona {id.filmaffinity} con {v}")
+            ko = True
+    for qid in qid_need_film:
+        for v in WIKI.get_property(qid, WIKI.WDT_FA):
+            print(f"[KO] {qid} ya relaciona {id.imdb} con {v}")
+            ko = True
+
+    if ko:
+        return False
+
+    for qid in qid_need_film:
+        qid = WIKI.set_property(qid, WIKI.WDT_FA, id.filmaffinity)
+        print(f"[OK] http://www.wikidata.org/entity/{qid} modificado para asociar {id.imdb} con {id.filmaffinity}")
+    for qid in gid_need_imdb:
+        qid = WIKI.set_property(qid, WIKI.WDT_IMDB, id.imdb)
+        print(f"[OK] http://www.wikidata.org/entity/{qid} modificado para asociar {id.imdb} con {id.filmaffinity}")
+
+    if (len(qid_need_film) + len(gid_need_imdb)) == 0:
+        qid = WIKI.create_item({
+            WIKI.WDT_FA: id.filmaffinity,
+            WIKI.WDT_IMDB: id.imdb
+        })
+        if qid is None:
+            print(f"No se ha podido crear el elemento para <{id.imdb}, {id.filmaffinity}>")
+            return False
+        print(f"[OK] http://www.wikidata.org/entity/{qid} creado para asociar {id.imdb} con {id.filmaffinity}")
+
+    return True
 
 
 if __name__ == "__main__":
@@ -281,44 +340,10 @@ if __name__ == "__main__":
         sys.exit("Los ids no cumplen el formato: " + ", ".join(pargs.ids))
     config = get_config(pargs.config)
 
-    id_imdb, id_filmaffinity = ids
+    ko = False
     WIKI = WikiApi(config)
-
-    qid_imdb = WIKI.get_qid_by_property(WIKI.WDT_IMDB, id_imdb)
-    qid_film = WIKI.get_qid_by_property(WIKI.WDT_FA, id_filmaffinity)
-
-    qid_common = set(qid_imdb).intersection(qid_film)
-    gid_need_imdb = set(qid_film).difference(qid_imdb)
-    qid_need_film = set(qid_imdb).difference(qid_film)
-
-    if len(qid_common):
-        for qid in qid_common:
-            print(f"[OK] {qid} ya relaciona {id_imdb} con {id_filmaffinity}")
-            sys.exit(0)
-    error: list[str] = []
-    for qid in gid_need_imdb:
-        for v in WIKI.get_property(qid, WIKI.WDT_IMDB):
-            error.append(f"[KO] {qid} ya relaciona {id_filmaffinity} con {id_imdb}")
-    for qid in qid_need_film:
-        for v in WIKI.get_property(qid, WIKI.WDT_FA):
-            error.append(f"[KO] {qid} ya relaciona {id_imdb} con {id_filmaffinity}")
-    if error:
-        print(*error, sep='\n')
+    for id in ids:
+        if set_id(WIKI, id) is False:
+            ko = False
+    if ko is False:
         sys.exit(1)
-
-    for qid in qid_need_film:
-        qid = WIKI.set_property(qid, WIKI.WDT_FA, id_filmaffinity)
-        print(f"[OK] http://www.wikidata.org/entity/{qid} modificado para asociar {id_imdb} con {id_filmaffinity}")
-    for qid in gid_need_imdb:
-        qid = WIKI.set_property(qid, WIKI.WDT_IMDB, id_imdb)
-        print(f"[OK] http://www.wikidata.org/entity/{qid} modificado para asociar {id_filmaffinity} con {id_imdb}")
-
-    if (len(qid_need_film) + len(gid_need_imdb)) == 0:
-        qid = WIKI.create_item({
-            WIKI.WDT_FA: id_filmaffinity,
-            WIKI.WDT_IMDB: id_imdb
-            }
-         )
-        if qid is None:
-            sys.exit(f"No se ha podido crear el elemento para <{id_imdb}, {id_filmaffinity}>")
-        print(f"[OK] http://www.wikidata.org/entity/{qid} creado para asociar {id_imdb} con {id_filmaffinity}")
