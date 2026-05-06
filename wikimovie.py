@@ -336,7 +336,7 @@ if __name__ == "__main__":
     parser.add_argument("ids", nargs='+', help="IDs de IMDb y FilmAffinity")
     pargs = parser.parse_args()
     ids = get_ids(pargs.ids)
-    if ids is None:
+    if ids is None or len(ids) == 0:
         sys.exit("Los ids no cumplen el formato: " + ", ".join(pargs.ids))
     config = get_config(pargs.config)
 
