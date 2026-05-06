@@ -265,7 +265,7 @@ def get_ids(arr: list[str]):
                 arr_film.append(x)
             continue
 
-    l1, l2 = map(len, arr_imdb, arr_film)
+    l1, l2 = map(len, (arr_imdb, arr_film))
     if l1 != l2 or 0 in (l1, l2):
         return None
 
