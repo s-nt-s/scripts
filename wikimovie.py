@@ -338,10 +338,10 @@ if __name__ == "__main__":
     ids = get_ids(pargs.ids)
     if ids is None or len(ids) == 0:
         sys.exit("Los ids no cumplen el formato: " + ", ".join(pargs.ids))
-    config = get_config(pargs.config)
+
+    WIKI = WikiApi(get_config(pargs.config))
 
     ko = False
-    WIKI = WikiApi(config)
     for id in ids:
         if set_id(WIKI, id) is False:
             ko = False
