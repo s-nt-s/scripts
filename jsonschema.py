@@ -4,6 +4,7 @@ import json
 import re
 import argparse
 from genson import SchemaBuilder
+import sys
 
 
 def _complete_schema(schema: dict, obj: list, threshold=60):
@@ -169,7 +170,6 @@ if __name__ == "__main__":
         '--out',
         type=str,
         help='Fichero de salida',
-        required=True
     )
     parser.add_argument(
         'files',
@@ -180,6 +180,12 @@ if __name__ == "__main__":
 
     arr = []
     pargs = parser.parse_args()
+    if pargs.out is None:
+        if len(pargs.files) != 1:
+            sys.exist("Debe definir --out cuando pasa como argumento más de un fichero")
+        pargs.out = pargs.files[0].replace(".json", ".schema.json")
+    if pargs.out in pargs.files:
+        sys.exit(f"El fichero de salida {pargs.out} debe ser distinto a los de entrada")
     for f in pargs.files:
         arr.extend(read(f))
     schema = get_schema(arr)
