@@ -254,9 +254,11 @@ def get_ids(arr: list[str]):
     arr_film: list[int] = []
 
     for i in arr:
+        i = re_sp.sub(" ", i).strip()
         i = re.sub(r"^https://www.filmaffinity.com.*/film(\d+).html$", r"\1", i)
         i = re.sub(r"^https://www.imdb.com/.*/(tt\d+).*", r"\1", i)
         i = re.sub(r"^film(\d+)$", r"\1", i)
+
         if re.match(r"^tt\d+$", i) and i not in arr_imdb:
             arr_imdb.append(i)
         if i.isdigit():
