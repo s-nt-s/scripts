@@ -9,15 +9,27 @@ import sys
 import re
 from pathlib import Path
 import tempfile
-from typing import NamedTuple
+from typing import Callable, NamedTuple, TypeVar
 from zipfile import ZipFile, is_zipfile
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+T = TypeVar("T")
+
 KO = (None, 0, '0')
-MODES = ("all", "progress", "bookmarks", "words")
+MODES = ("all", "progress", "bookmarks", "words", "activity", "events")
+
+
+class Activity(NamedTuple):
+    Id: str
+    Enabled: bool
+    Type: str
+    Action: int
+    Date: str
+    Data: bytes
 
 
 class Bookmark(NamedTuple):
@@ -112,7 +124,6 @@ def unzip_if_needed(path: Path) -> Path:
 
 class Db:
     def __init__(self, db_path: str | Path, readonly: bool = False):
-        logger.info(str(db_path))
         self.__db_path = Path(db_path).expanduser().absolute().resolve()
         if not self.__db_path.is_file():
             raise FileNotFoundError(f"Archivo de base de datos no encontrado: {self.__db_path}")
@@ -141,13 +152,34 @@ class Db:
         self.__cursor.execute(query, params)
         self.__conn.commit()
 
-    def fetchall(self, query, *params) -> list[sqlite3.Row]:
+    def fetchall(self, query: str, *params) -> list[sqlite3.Row]:
         self.__cursor.execute(query, list(params))
         try:
             return self.__cursor.fetchall()
         except Exception as e:
             logger.critical(f"{e}\n{self.__db_path}\n{params}\n{query}")
             raise e
+
+    def count(self, query: str, *params) -> int:
+        vals = self.fetchall(f"select count(*) total from {query}", *params)
+        return vals[0]['total']
+
+    def get(
+        self,
+        cst: Callable[..., T],
+        query: str,
+        *params: object,
+    ) -> tuple[T, ...]:
+        return tuple(cst(**i) for i in self.fetchall(query, *params))
+
+    def get_activity(self):
+        return self.get(
+            Activity,
+            """
+            SELECT distinct Id, Enabled, Type, Action, Date, CAST(Data AS BLOB) AS Data
+            FROM Activity
+            """,
+        )
 
     def close(self):
         self.__conn.close()
@@ -183,11 +215,7 @@ class Db:
                 Bookmark
             WHERE VolumeID = ?
         '''
-        bookmarks: list[Bookmark] = []
-        for row in self.fetchall(sql, VolumeID):
-            b = Bookmark(**row)
-            bookmarks.append(b)
-        return tuple(bookmarks)
+        return self.get(Bookmark, sql, VolumeID)
 
     def get_books(self, where: str = None):
         sql = '''
@@ -229,20 +257,19 @@ class Db:
             )
             b = b._replace(
                 bookmarks=self.get_bookmarks(b.ContentID),
-                wordList=tuple(
-                    WordItem(**w) for w in self.fetchall(
-                        '''
-                        SELECT
-                            Text,
-                            VolumeId,
-                            DictSuffix,
-                            DateCreated
-                        FROM
-                            WordList
-                        WHERE VolumeId = ?
-                        ''',
-                        b.ContentID
-                    )
+                wordList=self.get(
+                    WordItem,
+                    '''
+                    SELECT
+                        Text,
+                        VolumeId,
+                        DictSuffix,
+                        DateCreated
+                    FROM
+                        WordList
+                    WHERE VolumeId = ?
+                    ''',
+                    b.ContentID
                 )
             )
             books.append(b)
@@ -280,16 +307,25 @@ class Db:
 
     def __build_book_update(self, source: Book, target: Book):
         update_sql = {}
+        #if target.DateLastRead is not None and (source.DateLastRead is None or source.DateLastRead<target.DateLastRead):
+        #    return update_sql
         s = source._asdict()
         t = target._asdict()
         for k, v in s.items():
             if v is None or isinstance(v, tuple):
                 continue
-            if k not in ('ContentID', 'BookID', 'Title', 'ISBN', 'MimeType', 'ContentType') and v != t[k]:
-                k = {
-                    'PercentRead': '___PercentRead'
-                }.get(k, k)
-                update_sql[k] = v
+            if k in ('ContentID', 'BookID', 'Title', 'ISBN', 'MimeType', 'ContentType'):
+                continue
+            old = t[k]
+            if v == old:
+                continue
+            #if old is not None:
+            #    if k == "DateLastRead" and old > v:
+            #        continue
+            k = {
+                'PercentRead': '___PercentRead'
+            }.get(k, k)
+            update_sql[k] = v
         return update_sql
 
     def __build_word_insert(self, source: Book, target: Book):
@@ -341,6 +377,57 @@ class Db:
                 txt = txt[:max_log_length].strip() + "..."
             logger.info(f"  INSERT Bookmark: {b.BookmarkID} {txt}")
 
+    def migrate(self, table: str, source: "Db"):
+        if self.__readonly:
+            return
+
+        src = '"SRC"'
+        self.__conn.execute(
+            f"ATTACH DATABASE ? AS {src}",
+            (str(source.path),),
+        )
+        cursor = self.__conn.execute(
+            f"INSERT OR IGNORE INTO {table} "
+            f"SELECT * FROM {src}.{table}"
+        )
+        self.__conn.commit()
+        self.__conn.execute(f"DETACH DATABASE {src}")
+        if cursor.rowcount:
+            logger.info(
+                "Migrated %s rows from %s (%s)",
+                cursor.rowcount,
+                table,
+                source.path,
+            )
+
+
+def do_sync(source: str, target: str, apply: bool, mode: str):
+    book_pair: tuple[Book, Book] = []
+    with Db(target, readonly=not apply) as target_db:
+        with Db(source, readonly=True) as source_db:
+            for b in source_db.get_books():
+                if len(b.bookmarks) == 0 and len(b.wordList) == 0 and (
+                    b.ReadStatus in KO or (
+                        b.ReadStatus == 1 and
+                        b.PercentRead in KO and
+                        b.ChapterIDBookmarked in KO and
+                        b.BookmarkWordOffset in KO
+                    )
+                ):
+                    continue
+                n = target_db.find_book(b)
+                if not n:
+                    #logger.warning(f"Libro no encontrado: {b.ContentID}, {b.Title}")
+                    continue
+                book_pair.append((b, n))
+            if mode in ('all', 'events'):
+                target_db.migrate("Event", source_db)
+            #for a in source_db.get_activity():
+            #    if 0 == target_db.count("activity where Id IS ? and Type IS ? and Date = ?", a.Id, a.Type, a.Date):
+            #        target_db.insert("activity", **a._asdict())
+        for b, n in book_pair:
+            target_db.sync(b, n, mode)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -351,6 +438,7 @@ def main():
     parser.add_argument(
         "--source",
         required=True,
+        nargs='+',
         help="KoboReader.sqlite de origen (p. ej. Clara HD)",
     )
     parser.add_argument(
@@ -373,31 +461,17 @@ def main():
     )
 
     args = parser.parse_args()
+    sources = sorted(
+        map(Path, args.source),
+        key=lambda p: p.stat().st_mtime
+    )
 
-    book_pair: tuple[Book, Book] = []
-    with Db(args.target, readonly=not args.apply) as target_db:
-        with Db(unzip_if_needed(Path(args.source)), readonly=True) as source_db:
-            try:
-                source_db.get_books()
-            except:
-                return 1
-            for b in source_db.get_books():
-                if len(b.bookmarks) == 0 and len(b.wordList) == 0 and (
-                    b.ReadStatus in KO or (
-                        b.ReadStatus == 1 and
-                        b.PercentRead in KO and
-                        b.ChapterIDBookmarked in KO and
-                        b.BookmarkWordOffset in KO
-                    )
-                ):
-                    continue
-                n = target_db.find_book(b)
-                if not n:
-                    #logger.warning(f"Libro no encontrado: {b.ContentID}, {b.Title}")
-                    continue
-                book_pair.append((b, n))
-        for b, n in book_pair:
-            target_db.sync(b, n, args.mode)
+    for source in sources:
+        dt = datetime.fromtimestamp(
+            source.stat().st_mtime
+        ).strftime("%Y-%m-%d %H:%M")
+        logger.info(f"{dt} {source}")
+        do_sync(source, args.target, args.apply, args.mode)
 
     return 0
 
