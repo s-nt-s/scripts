@@ -20,16 +20,7 @@ logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 T = TypeVar("T")
 
 KO = (None, 0, '0')
-MODES = ("all", "progress", "bookmarks", "words", "activity", "events")
-
-
-class Activity(NamedTuple):
-    Id: str
-    Enabled: bool
-    Type: str
-    Action: int
-    Date: str
-    Data: bytes
+MODES = ("all", "progress", "bookmarks", "words", "activity", "events", "ratings")
 
 
 class Bookmark(NamedTuple):
@@ -275,16 +266,29 @@ class Db:
             books.append(b)
         return tuple(books)
 
-    def find_book(self, book: Book):
-        for rslt in (
-            f'ContentID = "{book.ContentID}"',
-            f'ContentID like "%/{book.ContentID.split("/")[-1]}"',
-        ):
-            books = self.get_books(f'{rslt} AND MimeType = "{book.MimeType}"')
+    def find_book_by_id(self, ContentID: str, MimeType: str):
+        local_prefix = "file:///mnt/"
+        whr = [
+            f'ContentID = "{ContentID}"',
+        ]
+        if ContentID.startswith(local_prefix):
+            tail = ContentID[len(local_prefix):]
+            for i in range(tail.count("/")+1):
+                whr.append(
+                    'ContentID like "%/' + tail.split("/", i)[-1] + '"'
+                )
+        for w in whr:
+            if MimeType:
+                w = f'{w} AND MimeType = "{MimeType}"'
+            books = self.get_books(w)
             if len(books) == 1:
                 return books[0]
             if len(books) > 1:
-                logger.warning(f"Se encontraron {len(books)} libros que cumple {rslt}")
+                logger.warning(f"Se encontraron {len(books)} libros que cumple {w}")
+
+    def find_book(self, book: Book):
+        b = self.find_book_by_id(book.ContentID, book.MimeType)
+        return b
 
     def update(self, table: str, where: str, **kwargs):
         if not kwargs or self.__readonly:
@@ -377,18 +381,25 @@ class Db:
                 txt = txt[:max_log_length].strip() + "..."
             logger.info(f"  INSERT Bookmark: {b.BookmarkID} {txt}")
 
-    def migrate(self, table: str, source: "Db"):
+    def get_columns(self, table: str):
+        return tuple([row["name"] for row in self.fetchall(
+            "SELECT name FROM pragma_table_info(?)",
+            table,
+        )])
+
+    def migrate(self, table: str, source: str | Path):
         if self.__readonly:
             return
-
+        clm = ", ".join(self.get_columns(table))
         src = '"SRC"'
         self.__conn.execute(
             f"ATTACH DATABASE ? AS {src}",
-            (str(source.path),),
+            (str(unzip_if_needed(source)),),
         )
         cursor = self.__conn.execute(
-            f"INSERT OR IGNORE INTO {table} "
-            f"SELECT * FROM {src}.{table}"
+            f"INSERT OR IGNORE INTO {table} ({clm}) "
+            f"SELECT distinct {clm} FROM {src}.{table} "
+            f"where ({clm}) not in (select {clm} from {table})"
         )
         self.__conn.commit()
         self.__conn.execute(f"DETACH DATABASE {src}")
@@ -397,7 +408,7 @@ class Db:
                 "Migrated %s rows from %s (%s)",
                 cursor.rowcount,
                 table,
-                source.path,
+                source,
             )
 
 
@@ -420,13 +431,15 @@ def do_sync(source: str, target: str, apply: bool, mode: str):
                     #logger.warning(f"Libro no encontrado: {b.ContentID}, {b.Title}")
                     continue
                 book_pair.append((b, n))
-            if mode in ('all', 'events'):
-                target_db.migrate("Event", source_db)
-            #for a in source_db.get_activity():
-            #    if 0 == target_db.count("activity where Id IS ? and Type IS ? and Date = ?", a.Id, a.Type, a.Date):
-            #        target_db.insert("activity", **a._asdict())
         for b, n in book_pair:
             target_db.sync(b, n, mode)
+        for k, t in {
+            "events": "Event",
+            "activity": "Activity",
+            "ratings": "ratings"
+        }.items():
+            if mode in ('all', k):
+                target_db.migrate(t, source)
 
 
 def main():
