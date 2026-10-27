@@ -9,7 +9,7 @@ if [[ ! -f "$1" ]]; then
     exit 0
 fi
 
-OPTS='^[489]$'
+OPTS='^(4|8|9|16)$'
 ITER=9
 
 if [[ $2 =~ $OPTS ]]; then
@@ -19,7 +19,19 @@ fi
 # Guias para cortar
 # Ancho: 842
 #  Alto: 595
-if [ $ITER -eq 9 ]; then
+if [ $ITER -eq 16 ]; then
+    echo "Octavilla 4x4"
+
+    read -r -d '' LINES <<EOF
+    0 210.5 moveto 595 210.5 lineto stroke
+    0 421 moveto 595 421 lineto stroke
+    0 631.5 moveto 595 631.5 lineto stroke
+
+    148.75 0 moveto 148.75 842 lineto stroke
+    297.5 0 moveto 297.5 842 lineto stroke
+    446.25 0 moveto 446.25 842 lineto stroke
+EOF
+elif [ $ITER -eq 9 ]; then
     echo "Octavilla 3x3"
 
     read -r -d '' LINES <<EOF
@@ -132,3 +144,4 @@ build_page 1
 build_page 2
 
 pdftk 1.pdf 2.pdf cat output "${OUTPUT}.pdf"
+echo "${OUTPUT}.pdf"
