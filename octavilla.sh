@@ -65,6 +65,7 @@ read -r -d '' GRID <<EOF
 << /BeginPage
 {
     0.7 setgray
+    0 setlinewidth
 
     $LINES
 }
@@ -120,12 +121,6 @@ function build_page {
     height=$(echo $size | cut -d' ' -f2)
     pdf2ps "$1.pdf" "$1.ps"
     psnup -W${width} -H${height} -pa4 -${ITER} "$1.ps" "$1_oct.ps"
-
-    if [ $1 -eq 1 ]; then
-        cp "$1_oct.ps" "$1_oct.bak.ps"
-        echo $GRID > "$1_oct.ps"
-        cat "$1_oct.bak.ps" >> "$1_oct.ps"
-    fi
     rm "$1.pdf"
     ps2pdf "$1_oct.ps" "$1.pdf"
     rot=$(pdfinfo "$1.pdf" | grep "Page rot" | awk '{print $3}')
@@ -143,5 +138,23 @@ function build_page {
 build_page 1
 build_page 2
 
-pdftk 1.pdf 2.pdf cat output "${OUTPUT}.pdf"
+cat > grid.ps <<EOF
+$GRID
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 595 842
+%%Pages: 1
+%%EndComments
+%%Page: 1 1
+%%EOF
+EOF
+
+gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite \
+   -dDEVICEWIDTHPOINTS=595 -dDEVICEHEIGHTPOINTS=842 \
+   -dFIXEDMEDIA -sOutputFile=grid.pdf grid.ps
+
+qpdf "1.pdf" --overlay "grid.pdf" --repeat=1 -- "1_grid.pdf"
+pdftk 1_grid.pdf 2.pdf cat output "${OUTPUT}.pdf"
+
+
 echo "${OUTPUT}.pdf"
+
