@@ -77,6 +77,7 @@ read -r -d '' GRID <<EOF
 {
     0.7 setgray
     0 setlinewidth
+    [6 12] 0 setdash
 
     $LINES
 }
