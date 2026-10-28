@@ -1,4 +1,5 @@
 #!/bin/bash
+set -uo pipefail
 
 if [[ $# -eq 0 ]]; then
     echo "Tienes que pasar un fichero como argumento"
@@ -9,6 +10,20 @@ if [[ ! -f "$1" ]]; then
     exit 0
 fi
 
+check_cmd() {
+    if ! command -v "$1" &> /dev/null; then
+        echo "Error: el comando '$1' no está instalado" >&2
+        exit 1
+    fi
+}
+
+check_cmd unoconv
+check_cmd pdfinfo
+check_cmd pdftk
+check_cmd pdf2ps
+check_cmd psnup
+check_cmd qpdf
+
 OPTS='^(4|8|9|16)$'
 ITER=9
 
@@ -16,12 +31,11 @@ if [[ $2 =~ $OPTS ]]; then
     ITER="$2"
 fi
 
-# Guias para cortar
+# Guías para cortar
 # Ancho: 842
 #  Alto: 595
 if [ $ITER -eq 16 ]; then
     echo "Octavilla 4x4"
-
     read -r -d '' LINES <<EOF
     0 210.5 moveto 595 210.5 lineto stroke
     0 421 moveto 595 421 lineto stroke
@@ -33,7 +47,6 @@ if [ $ITER -eq 16 ]; then
 EOF
 elif [ $ITER -eq 9 ]; then
     echo "Octavilla 3x3"
-
     read -r -d '' LINES <<EOF
     0 280.66 moveto 595 280.66 lineto stroke
     0 561.33 moveto 595 561.33 lineto stroke
@@ -43,7 +56,6 @@ elif [ $ITER -eq 9 ]; then
 EOF
 elif [ $ITER -eq 8 ]; then
     echo "Octavilla 2x4"
-
     read -r -d '' LINES <<EOF
     0 210.5 moveto 595 210.5 lineto stroke
     0 421 moveto 595 421 lineto stroke
@@ -53,7 +65,6 @@ elif [ $ITER -eq 8 ]; then
 EOF
 elif [ $ITER -eq 4 ]; then
     echo "Octavilla 2x2"
-
     read -r -d '' LINES <<EOF
     0 421 moveto 595 421 lineto stroke
 
@@ -124,7 +135,12 @@ function build_page {
     rm "$1.pdf"
     ps2pdf "$1_oct.ps" "$1.pdf"
     rot=$(pdfinfo "$1.pdf" | grep "Page rot" | awk '{print $3}')
-    if [ $rot -eq 90 ]; then
+    if [ $rot -eq 0 ]; then
+        if [ $1 -eq 2 ]; then
+            pdftk "$1.pdf" cat 1-endsouth output "$1_rotate.pdf"
+            mv "$1_rotate.pdf" "$1.pdf"
+        fi
+    elif [ $rot -eq 90 ]; then
         if [ $1 -eq 1 ]; then
             pdftk "$1.pdf" cat 1-endleft output "$1_rotate.pdf"
             mv "$1_rotate.pdf" "$1.pdf"
@@ -154,7 +170,6 @@ gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite \
 
 qpdf "1.pdf" --overlay "grid.pdf" --repeat=1 -- "1_grid.pdf"
 pdftk 1_grid.pdf 2.pdf cat output "${OUTPUT}.pdf"
-
 
 echo "${OUTPUT}.pdf"
 
